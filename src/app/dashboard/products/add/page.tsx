@@ -575,7 +575,6 @@ export default function AddProductPage() {
   const [pageLoading, setPageLoading] = useState(true);
   const [savingDraft, setSavingDraft] = useState(false);
   const [savingPub, setSavingPub] = useState(false);
-  const [uploadingImg, setUploadingImg] = useState(false);
 
   // ── API data
   const [categories, setCategories] = useState<Category[]>([]);
@@ -594,6 +593,7 @@ export default function AddProductPage() {
     skuCode: "",
     offerPrice: "",
     barcode: "",
+    ebayCategoryId: "",
     ebayEPID: "",
     ebayPackageType: "",
     ebayDimensionUnit: "",
@@ -610,12 +610,14 @@ export default function AddProductPage() {
     weight: "",
     quantity: "",
     freeShipping: "",
+    tags: "",
     cat1Id: "",
     cat2Id: "",
     cat3Id: "",
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [images, setImages] = useState<string[]>([]);
+  const [imageFiles, setImageFiles] = useState<File[]>([]);
+  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [displayImageIdx, setDisplayImageIdx] = useState(0);
 
   // ── Tab content
@@ -688,42 +690,14 @@ export default function AddProductPage() {
       .finally(() => setPageLoading(false));
   }, [router, toast]);
 
-  // ── Image upload
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // ── Image upload (collect files locally, preview with object URLs)
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const token = getToken();
-    if (!token) {
-      router.push("/");
-      return;
-    }
-    setUploadingImg(true);
-    try {
-      const fd = new FormData();
-      fd.append("image", file);
-      const res = await fetch(`${API_BASE}/upload`, {
-        method: "POST",
-        headers: {
-          authorization: `Bearer ${token}`,
-          "x-app-client": "ADMIN_PANEL",
-        },
-        body: fd,
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Upload failed");
-      const url: string = data.data?.url ?? data.data ?? data.url ?? "";
-      if (url) setImages((prev) => [...prev, url]);
-      else throw new Error("No image URL in response");
-    } catch {
-      toast({
-        title: "Upload Failed",
-        description: "Could not upload image. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setUploadingImg(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
-    }
+    const previewUrl = URL.createObjectURL(file);
+    setImageFiles((prev) => [...prev, file]);
+    setImagePreviews((prev) => [...prev, previewUrl]);
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   // ── Validation
@@ -738,7 +712,8 @@ export default function AddProductPage() {
       e.weight = "Weight is required";
     if (!form.supplierId) e.supplierId = "Supplier is required";
     if (!form.cat1Id) e.cat1Id = "Category 1L is required";
-    if (images.length === 0) e.displayImage = "At least one image is required";
+    if (imageFiles.length === 0)
+      e.displayImage = "At least one image is required";
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -755,52 +730,49 @@ export default function AddProductPage() {
     form.weight !== "" &&
     !isNaN(Number(form.weight)) &&
     form.cat1Id !== "" &&
-    images.length > 0;
+    imageFiles.length > 0;
 
-  // ── Build payload
-  const buildPayload = (status: "draft" | "active") => ({
-    name: form.name,
-    skuCode: form.skuCode,
-    ...(form.offerPrice && { offerPrice: parseFloat(form.offerPrice) }),
-    ...(form.barcode && { barcode: form.barcode }),
-    price: parseFloat(form.price),
-    weight: parseFloat(form.weight),
-    supplierId: form.supplierId,
-    ...(form.quantity && { quantity: parseInt(form.quantity) }),
-    ...(form.freeShipping && { freeShipping: form.freeShipping === "true" }),
-    ...(form.cat1Id && { category1Id: form.cat1Id }),
-    ...(form.cat2Id && { category2Id: form.cat2Id }),
-    ...(form.cat3Id && { category3Id: form.cat3Id }),
-    categoryId: form.cat3Id || form.cat2Id || form.cat1Id,
-    ...(form.ebayEPID && { ebayEPID: form.ebayEPID }),
-    ...(form.ebayPackageType && { ebayPackageType: form.ebayPackageType }),
-    ...(form.ebayDimensionUnit && {
-      ebayDimensionUnit: form.ebayDimensionUnit,
-    }),
-    ...(form.ebayLength && { ebayLength: parseFloat(form.ebayLength) }),
-    ...(form.ebayWidth && { ebayWidth: parseFloat(form.ebayWidth) }),
-    ...(form.ebayHeight && { ebayHeight: parseFloat(form.ebayHeight) }),
-    ...(form.ebayName && { ebayName: form.ebayName }),
-    ...(form.ebayPrice && { ebayPrice: parseFloat(form.ebayPrice) }),
-    ...(form.ebayPaymentPolicyId && {
-      ebayPaymentPolicyId: form.ebayPaymentPolicyId,
-    }),
-    ...(form.ebayReturnPolicyId && {
-      ebayReturnPolicyId: form.ebayReturnPolicyId,
-    }),
-    ...(form.ebayFulfillmentPolicyId && {
-      ebayFulfillmentPolicyId: form.ebayFulfillmentPolicyId,
-    }),
-    images,
-    displayImage: images[displayImageIdx] ?? images[0] ?? "",
-    description,
-    ebayDescription,
-    specifications: specRows,
-    relatedProducts: selectedRelated,
-    accessories: selectedAccessories,
-    reviews: selectedReviews,
-    status,
-  });
+  // ── Build multipart/form-data payload
+  const buildFormData = (status: "draft" | "active") => {
+    const fd = new FormData();
+    fd.append("name", form.name);
+    fd.append("description", description);
+    fd.append("weight", form.weight);
+    fd.append("price", form.price);
+    if (form.quantity) fd.append("quantity", form.quantity);
+    fd.append("category", form.cat3Id || form.cat2Id || form.cat1Id);
+    fd.append("supplier", form.supplierId);
+    fd.append("skuCode", form.skuCode);
+    fd.append("offerPrice", form.offerPrice);
+    fd.append("barcode", form.barcode);
+    fd.append("ebayCategoryId", form.ebayCategoryId);
+    fd.append("ebayEpid", form.ebayEPID);
+    fd.append("ebayPackageType", form.ebayPackageType);
+    fd.append("dimensionUnits", form.ebayDimensionUnit);
+    fd.append("length", form.ebayLength);
+    fd.append("width", form.ebayWidth);
+    fd.append("height", form.ebayHeight);
+    fd.append("ebayName", form.ebayName);
+    fd.append("ebayDescription", ebayDescription);
+    fd.append("ebayPrice", form.ebayPrice);
+    fd.append("ebayPaymentPolicyId", form.ebayPaymentPolicyId);
+    fd.append("ebayReturnPolicyId", form.ebayReturnPolicyId);
+    fd.append("ebayShippingPolicyId", form.ebayFulfillmentPolicyId);
+    fd.append("tags", form.tags);
+    fd.append("hasFreeShipping", form.freeShipping || "false");
+    fd.append("isActive", status === "active" ? "true" : "false");
+    // Display picture
+    const displayFile = imageFiles[displayImageIdx];
+    if (displayFile) fd.append("displayPic", displayFile, displayFile.name);
+    // Additional images
+    imageFiles.forEach((file, i) => {
+      if (i !== displayImageIdx) fd.append("images", file, file.name);
+    });
+    // Accessories & related
+    selectedAccessories.forEach((id) => fd.append("accessories", id));
+    selectedRelated.forEach((id) => fd.append("relatedProducts", id));
+    return fd;
+  };
 
   // ── Save
   const handleSave = async (status: "draft" | "active") => {
@@ -822,8 +794,8 @@ export default function AddProductPage() {
     try {
       const res = await fetch(`${API_BASE}/product`, {
         method: "POST",
-        headers: jsonHeaders(token),
-        body: JSON.stringify(buildPayload(status)),
+        headers: authHeaders(token),
+        body: buildFormData(status),
       });
       if (res.status === 401) {
         router.push("/");
@@ -838,7 +810,6 @@ export default function AddProductPage() {
         description: `Product ${status === "draft" ? "saved as draft" : "published"} successfully.`,
         variant: "success" as any,
       });
-      router.push("/dashboard/products");
     } catch (err: any) {
       toast({
         title: "Error",
@@ -919,16 +890,12 @@ export default function AddProductPage() {
         <div className="flex-shrink-0 w-full lg:w-56 space-y-3">
           {/* Main preview */}
           <div className="w-full aspect-square border-2 border-[#1a2b6b]/30 rounded-xl overflow-hidden bg-gray-50 relative">
-            {images.length > 0 ? (
+            {imagePreviews.length > 0 ? (
               <img
-                src={images[displayImageIdx] ?? images[0]}
+                src={imagePreviews[displayImageIdx] ?? imagePreviews[0]}
                 alt="Main preview"
                 className="w-full h-full object-contain p-3"
               />
-            ) : uploadingImg ? (
-              <div className="w-full h-full flex items-center justify-center">
-                <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
-              </div>
             ) : (
               <div
                 onClick={() => fileInputRef.current?.click()}
@@ -941,13 +908,13 @@ export default function AddProductPage() {
           </div>
 
           {/* All Images thumbnails */}
-          {images.length > 0 && (
+          {imagePreviews.length > 0 && (
             <div>
               <p className="text-sm font-semibold text-gray-700 mb-2">
-                All Images ({images.length})
+                All Images ({imagePreviews.length})
               </p>
               <div className="flex flex-wrap gap-2">
-                {images.map((img, i) => (
+                {imagePreviews.map((preview, i) => (
                   <div
                     key={i}
                     onClick={() => setDisplayImageIdx(i)}
@@ -958,7 +925,7 @@ export default function AddProductPage() {
                     }`}
                   >
                     <img
-                      src={img}
+                      src={preview}
                       alt={`img-${i + 1}`}
                       className="w-full h-full object-contain p-1"
                     />
@@ -974,7 +941,11 @@ export default function AddProductPage() {
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
-                        setImages((prev) => {
+                        URL.revokeObjectURL(imagePreviews[i]);
+                        setImageFiles((prev) =>
+                          prev.filter((_, idx) => idx !== i),
+                        );
+                        setImagePreviews((prev) => {
                           const next = prev.filter((_, idx) => idx !== i);
                           if (displayImageIdx >= next.length)
                             setDisplayImageIdx(Math.max(0, next.length - 1));
@@ -989,14 +960,10 @@ export default function AddProductPage() {
                 ))}
                 {/* Add more */}
                 <div
-                  onClick={() => !uploadingImg && fileInputRef.current?.click()}
+                  onClick={() => fileInputRef.current?.click()}
                   className="w-16 h-16 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center cursor-pointer hover:border-[#1a2b6b]/50 transition-colors"
                 >
-                  {uploadingImg ? (
-                    <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
-                  ) : (
-                    <Plus className="h-5 w-5 text-gray-400" />
-                  )}
+                  <Plus className="h-5 w-5 text-gray-400" />
                 </div>
               </div>
             </div>
@@ -1053,6 +1020,14 @@ export default function AddProductPage() {
           </Field>
 
           {/* Row 3 */}
+          <Field label="eBay Category ID">
+            <input
+              value={form.ebayCategoryId}
+              onChange={(e) => set("ebayCategoryId", e.target.value)}
+              placeholder="Enter eBay Category ID (optional)"
+              className={inputCls}
+            />
+          </Field>
           <Field label="eBay EPID">
             <input
               value={form.ebayEPID}
@@ -1280,8 +1255,14 @@ export default function AddProductPage() {
               <ChevronLeft className="absolute right-3 top-1/2 -translate-y-1/2 rotate-[-90deg] h-4 w-4 text-gray-400 pointer-events-none" />
             </div>
           </Field>
-
-          {/* Row 11 — Category 1L + 2L */}
+          <Field label="Tags">
+            <input
+              value={form.tags}
+              onChange={(e) => set("tags", e.target.value)}
+              placeholder="Comma-separated tags (optional)"
+              className={inputCls}
+            />
+          </Field>
           <Field label="Category 1L" required error={errors.cat1Id}>
             <div className="relative">
               <select
@@ -1353,25 +1334,20 @@ export default function AddProductPage() {
               <select
                 value={displayImageIdx}
                 onChange={(e) => setDisplayImageIdx(Number(e.target.value))}
-                disabled={images.length === 0}
+                disabled={imageFiles.length === 0}
                 className={`${
                   errors.displayImage ? inputErrCls : selectCls
                 } disabled:opacity-50 disabled:cursor-not-allowed`}
               >
-                {images.length === 0 ? (
+                {imageFiles.length === 0 ? (
                   <option value="">Upload an image first...</option>
                 ) : (
-                  images.map((img, i) => {
-                    const filename =
-                      img.split("/").pop()?.substring(0, 18) ??
-                      `Image ${i + 1}`;
-                    return (
-                      <option key={i} value={i}>
-                        Image {i + 1} ({filename}...)
-                        {i === displayImageIdx ? " (Current)" : ""}
-                      </option>
-                    );
-                  })
+                  imageFiles.map((file, i) => (
+                    <option key={i} value={i}>
+                      Image {i + 1} ({file.name.substring(0, 20)})
+                      {i === displayImageIdx ? " (Main)" : ""}
+                    </option>
+                  ))
                 )}
               </select>
               <ChevronLeft className="absolute right-3 top-1/2 -translate-y-1/2 rotate-[-90deg] h-4 w-4 text-gray-400 pointer-events-none" />
