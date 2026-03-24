@@ -260,7 +260,7 @@ function RichTextEditor({
         </button>
         <div className="w-px h-5 bg-gray-200 mx-0.5" />
         <Btn cmd="formatBlock" val="blockquote" title="Quote" cls="text-base">
-          "
+          &ldquo;
         </Btn>
         <Btn cmd="formatBlock" val="pre" title="Code" cls="font-mono text-xs">
           {"</>"}
@@ -918,9 +918,7 @@ export default function AddProductPage() {
         {/* Image Upload */}
         <div className="flex-shrink-0 w-full lg:w-56 space-y-3">
           {/* Main preview */}
-          <div
-            className="w-full aspect-square border-2 border-[#1a2b6b]/30 rounded-xl overflow-hidden bg-gray-50 relative"
-          >
+          <div className="w-full aspect-square border-2 border-[#1a2b6b]/30 rounded-xl overflow-hidden bg-gray-50 relative">
             {images.length > 0 ? (
               <img
                 src={images[displayImageIdx] ?? images[0]}
@@ -991,9 +989,7 @@ export default function AddProductPage() {
                 ))}
                 {/* Add more */}
                 <div
-                  onClick={() =>
-                    !uploadingImg && fileInputRef.current?.click()
-                  }
+                  onClick={() => !uploadingImg && fileInputRef.current?.click()}
                   className="w-16 h-16 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center cursor-pointer hover:border-[#1a2b6b]/50 transition-colors"
                 >
                   {uploadingImg ? (
@@ -1352,11 +1348,7 @@ export default function AddProductPage() {
               <ChevronLeft className="absolute right-3 top-1/2 -translate-y-1/2 rotate-[-90deg] h-4 w-4 text-gray-400 pointer-events-none" />
             </div>
           </Field>
-          <Field
-            label="Display Picture"
-            required
-            error={errors.displayImage}
-          >
+          <Field label="Display Picture" required error={errors.displayImage}>
             <div className="relative">
               <select
                 value={displayImageIdx}
@@ -1371,7 +1363,8 @@ export default function AddProductPage() {
                 ) : (
                   images.map((img, i) => {
                     const filename =
-                      img.split("/").pop()?.substring(0, 18) ?? `Image ${i + 1}`;
+                      img.split("/").pop()?.substring(0, 18) ??
+                      `Image ${i + 1}`;
                     return (
                       <option key={i} value={i}>
                         Image {i + 1} ({filename}...)
