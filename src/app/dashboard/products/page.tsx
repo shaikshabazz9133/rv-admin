@@ -71,6 +71,7 @@ interface ApiProduct {
 
 interface Category {
   id: number;
+  _id: string;
   name: string;
   level: "L1" | "L2" | "L3";
   parentCategory: string;
@@ -78,145 +79,6 @@ interface Category {
   children?: Category[];
   expanded?: boolean;
 }
-
-// â”€â”€â”€ Category mock data â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-
-const initialCategories: Category[] = [
-  {
-    id: 1,
-    name: "4WD ACC",
-    level: "L1",
-    parentCategory: "-",
-    status: "Active",
-    expanded: false,
-    children: [
-      {
-        id: 11,
-        name: "4WD Accessories",
-        level: "L2",
-        parentCategory: "4WD ACC",
-        status: "Active",
-        expanded: false,
-      },
-      {
-        id: 12,
-        name: "4WD Awnings",
-        level: "L2",
-        parentCategory: "4WD ACC",
-        status: "Active",
-      },
-      {
-        id: 13,
-        name: "4WD Electrical",
-        level: "L2",
-        parentCategory: "4WD ACC",
-        status: "Active",
-      },
-      {
-        id: 14,
-        name: "4WD Equipments",
-        level: "L2",
-        parentCategory: "4WD ACC",
-        status: "Active",
-      },
-      {
-        id: 15,
-        name: "4WD Fridges",
-        level: "L2",
-        parentCategory: "4WD ACC",
-        status: "Active",
-      },
-    ],
-  },
-  {
-    id: 2,
-    name: "BOAT & MARINE",
-    level: "L1",
-    parentCategory: "-",
-    status: "Active",
-    expanded: false,
-    children: [
-      {
-        id: 21,
-        name: "Fishing",
-        level: "L2",
-        parentCategory: "BOAT & MARINE",
-        status: "Active",
-        expanded: false,
-        children: [
-          {
-            id: 211,
-            name: "Fishing Combos",
-            level: "L3",
-            parentCategory: "Fishing",
-            status: "Active",
-          },
-          {
-            id: 212,
-            name: "Fishing Line",
-            level: "L3",
-            parentCategory: "Fishing",
-            status: "Active",
-          },
-          {
-            id: 213,
-            name: "Fishing Reels",
-            level: "L3",
-            parentCategory: "Fishing",
-            status: "Active",
-          },
-          {
-            id: 214,
-            name: "Fishing Tackle",
-            level: "L3",
-            parentCategory: "Fishing",
-            status: "Active",
-          },
-          {
-            id: 215,
-            name: "Rod Holders",
-            level: "L3",
-            parentCategory: "Fishing",
-            status: "Active",
-          },
-        ],
-      },
-    ],
-  },
-  {
-    id: 3,
-    name: "CAMPING RV",
-    level: "L1",
-    parentCategory: "-",
-    status: "Active",
-    expanded: false,
-  },
-  {
-    id: 4,
-    name: "CARAVAN RV",
-    level: "L1",
-    parentCategory: "-",
-    status: "Active",
-    expanded: false,
-  },
-  {
-    id: 5,
-    name: "ELECTRICAL",
-    level: "L1",
-    parentCategory: "-",
-    status: "Active",
-    expanded: false,
-  },
-  {
-    id: 6,
-    name: "FISHING1",
-    level: "L1",
-    parentCategory: "-",
-    status: "Active",
-  },
-  { id: 7, name: "SALE", level: "L1", parentCategory: "-", status: "Active" },
-  { id: 8, name: "test", level: "L1", parentCategory: "-", status: "Active" },
-];
 
 // â”€â”€â”€ Category helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
@@ -419,8 +281,8 @@ function CategoryRows({
   depth: number;
   onToggle: (id: number) => void;
   onEdit: (cat: Category) => void;
-  onDelete: (id: number) => void;
-  onPause: (id: number) => void;
+  onDelete: (id: string) => void;
+  onPause: (id: string, currentlyActive: boolean) => void;
 }) {
   return (
     <>
@@ -483,18 +345,22 @@ function CategoryRows({
                   <Pencil className="h-4 w-4" />
                 </button>
                 <button
-                  onClick={() => onDelete(cat.id)}
+                  onClick={() => onDelete(cat._id)}
                   className="text-gray-400 hover:text-red-500 transition-colors p-1"
                   title="Delete"
                 >
                   <Trash2 className="h-4 w-4" />
                 </button>
                 <button
-                  onClick={() => onPause(cat.id)}
+                  onClick={() => onPause(cat._id, cat.status === "Active")}
                   className="text-gray-400 hover:text-amber-500 transition-colors p-1"
-                  title="Pause"
+                  title={cat.status === "Active" ? "Pause" : "Activate"}
                 >
-                  <Pause className="h-4 w-4" />
+                  {cat.status === "Active" ? (
+                    <Pause className="h-4 w-4" />
+                  ) : (
+                    <Play className="h-4 w-4" />
+                  )}
                 </button>
               </div>
             </td>
@@ -540,24 +406,28 @@ export default function ProductsPage() {
   const [deletingProduct, setDeletingProduct] = useState(false);
   const [togglingId, setTogglingId] = useState<string | null>(null);
 
-  // â”€â”€ Categories state (local)
-  const [categories, setCategories] = useState<Category[]>(initialCategories);
+  // -- Categories state
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [categoriesLoading, setCategoriesLoading] = useState(false);
   const [categorySearch, setCategorySearch] = useState("");
   const [showAddCategory, setShowAddCategory] = useState(false);
-  const [editCategoryId, setEditCategoryId] = useState<number | null>(null);
-  const [deleteCategoryId, setDeleteCategoryId] = useState<number | null>(null);
-  const [pauseCategoryId, setPauseCategoryId] = useState<number | null>(null);
+  const [editCategoryId, setEditCategoryId] = useState<string | null>(null);
+  const [deleteCategoryId, setDeleteCategoryId] = useState<string | null>(null);
+  const [pauseCategoryData, setPauseCategoryData] = useState<{ _id: string; currentlyActive: boolean } | null>(null);
+  const [savingCategory, setSavingCategory] = useState(false);
   const [categoryForm, setCategoryForm] = useState({
     name: "",
     level: "L1",
     tags: "",
     displayPriority: "0",
     image: null as string | null,
+    existingImage: null as string | null,
   });
   const [categoryErrors, setCategoryErrors] = useState<Record<string, string>>(
     {},
   );
   const categoryImageRef = useRef<HTMLInputElement>(null);
+  const categoryImageFileRef = useRef<File | null>(null);
 
   // â”€â”€ Debounce search
   useEffect(() => {
@@ -617,6 +487,52 @@ export default function ProductsPage() {
     if (activeTab === "products") fetchProducts();
   }, [fetchProducts, activeTab]);
 
+  // -- Fetch categories
+  const loadCategories = useCallback(async () => {
+    const token = getToken();
+    if (!token) {
+      router.push("/");
+      return;
+    }
+    setCategoriesLoading(true);
+    try {
+      let idCounter = 0;
+      const mapNode = (node: any, parentName: string): Category => {
+        const id = ++idCounter;
+        const children = (node.categories ?? []).length > 0
+          ? (node.categories as any[]).map((child: any) => mapNode(child, node.name))
+          : undefined;
+        return {
+          id,
+          _id: node._id,
+          name: node.name,
+          level: `L${node.level}` as "L1" | "L2" | "L3",
+          parentCategory: parentName,
+          status: node.isActive ? "Active" : "Paused",
+          expanded: false,
+          children,
+        };
+      };
+      const res = await fetch(`${API_BASE}/product/categories?format=tree`, {
+        headers: authHeaders(token),
+      });
+      if (res.status === 401) {
+        router.push("/");
+        return;
+      }
+      const json = await res.json();
+      setCategories((json.data?.tree ?? []).map((n: any) => mapNode(n, "-")));
+    } catch {
+      toast({ title: "Error", description: "Failed to load categories.", variant: "destructive" });
+    } finally {
+      setCategoriesLoading(false);
+    }
+  }, [router, toast]);
+
+  useEffect(() => {
+    if (activeTab === "categories") loadCategories();
+  }, [loadCategories, activeTab]);
+
   // â”€â”€ Delete product
   const handleDeleteProduct = async () => {
     if (!deleteProductId) return;
@@ -627,10 +543,13 @@ export default function ProductsPage() {
     }
     setDeletingProduct(true);
     try {
-      const res = await fetch(`${API_BASE}/product/${deleteProductId}`, {
-        method: "DELETE",
-        headers: authHeaders(token),
-      });
+      const res = await fetch(
+        `${API_BASE}/product?productId=${deleteProductId}`,
+        {
+          method: "DELETE",
+          headers: authHeaders(token),
+        },
+      );
       if (!res.ok) {
         const d = await res.json().catch(() => ({}));
         throw new Error(d.message || "Delete failed");
@@ -658,10 +577,13 @@ export default function ProductsPage() {
     }
     setTogglingId(product._id);
     try {
-      const res = await fetch(`${API_BASE}/product/${product._id}`, {
+      const fd = new FormData();
+      fd.append("productId", product._id);
+      fd.append("isActive", String(!product.isActive));
+      const res = await fetch(`${API_BASE}/product`, {
         method: "PATCH",
-        headers: jsonHeaders(token),
-        body: JSON.stringify({ isActive: !product.isActive }),
+        headers: authHeaders(token),
+        body: fd,
       });
       if (!res.ok) {
         const d = await res.json().catch(() => ({}));
@@ -682,86 +604,133 @@ export default function ProductsPage() {
     }
   };
 
-  // â”€â”€ Category helpers
+  // -- Category handlers
   const openAddCategory = () => {
     setEditCategoryId(null);
-    setCategoryForm({
-      name: "",
-      level: "L1",
-      tags: "",
-      displayPriority: "0",
-      image: null,
-    });
+    categoryImageFileRef.current = null;
+    setCategoryForm({ name: "", level: "L1", tags: "", displayPriority: "0", image: null, existingImage: null });
     setCategoryErrors({});
     setShowAddCategory(true);
   };
-  const openEditCategory = (cat: Category) => {
-    setEditCategoryId(cat.id);
-    setCategoryForm({
-      name: cat.name,
-      level: cat.level,
-      tags: "",
-      displayPriority: "0",
-      image: null,
-    });
+
+  const openEditCategory = async (cat: Category) => {
+    setEditCategoryId(cat._id);
+    categoryImageFileRef.current = null;
+    setCategoryForm({ name: "", level: cat.level, tags: "", displayPriority: "0", image: null, existingImage: null });
     setCategoryErrors({});
     setShowAddCategory(true);
+    try {
+      const token = getToken();
+      if (!token) { router.push("/"); return; }
+      const res = await fetch(`${API_BASE}/product/category?categoryId=${cat._id}`, {
+        headers: authHeaders(token),
+      });
+      const json = await res.json();
+      const d = json.data;
+      if (d) {
+        setCategoryForm({
+          name: d.name ?? "",
+          level: d.level ? (`L${d.level}` as "L1" | "L2" | "L3") : cat.level,
+          tags: (d.tags ?? []).join(", "),
+          displayPriority: String(d.displayPriority ?? 0),
+          image: d.image ?? null,
+          existingImage: d.image ?? null,
+        });
+      }
+    } catch {
+      // keep form with data from tree
+    }
   };
-  const saveCategory = () => {
+
+  const saveCategory = async () => {
     const errors = validateCategory(categoryForm);
-    if (Object.keys(errors).length > 0) {
-      setCategoryErrors(errors);
-      return;
+    if (Object.keys(errors).length > 0) { setCategoryErrors(errors); return; }
+    const token = getToken();
+    if (!token) { router.push("/"); return; }
+    setSavingCategory(true);
+    try {
+      const levelNum = categoryForm.level === "L1" ? 1 : categoryForm.level === "L2" ? 2 : 3;
+      const fd = new FormData();
+      fd.append("name", categoryForm.name);
+      fd.append("level", String(levelNum));
+      fd.append("displayPriority", categoryForm.displayPriority || "0");
+      if (editCategoryId !== null) {
+        fd.append("categoryId", editCategoryId);
+        if (categoryImageFileRef.current) {
+          fd.append("image", categoryImageFileRef.current);
+        } else if (categoryForm.existingImage) {
+          fd.append("existingImage", categoryForm.existingImage);
+        }
+        const res = await fetch(`${API_BASE}/product/category`, {
+          method: "PATCH",
+          headers: authHeaders(token),
+          body: fd,
+        });
+        if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.message || "Update failed"); }
+        toast({ title: "Category updated!" });
+      } else {
+        if (categoryImageFileRef.current) fd.append("image", categoryImageFileRef.current);
+        const res = await fetch(`${API_BASE}/product/category`, {
+          method: "POST",
+          headers: authHeaders(token),
+          body: fd,
+        });
+        if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.message || "Create failed"); }
+        toast({ title: "Category added!" });
+      }
+      setShowAddCategory(false);
+      loadCategories();
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setSavingCategory(false);
     }
-    if (editCategoryId !== null) {
-      setCategories((prev) =>
-        updateCategoryTree(prev, editCategoryId, (c) => ({
-          ...c,
-          name: categoryForm.name,
-          level: categoryForm.level as "L1" | "L2" | "L3",
-        })),
-      );
-      toast({ title: "Category updated!" });
-    } else {
-      setCategories((prev) => [
-        ...prev,
-        {
-          id: Date.now(),
-          name: categoryForm.name,
-          level: categoryForm.level as "L1" | "L2" | "L3",
-          parentCategory: "-",
-          status: "Active",
-        },
-      ]);
-      toast({ title: "Category added!" });
+  };
+
+  const handleDeleteCategory = async () => {
+    if (!deleteCategoryId) return;
+    const token = getToken();
+    if (!token) { router.push("/"); return; }
+    try {
+      const res = await fetch(`${API_BASE}/product/category?categoryId=${deleteCategoryId}`, {
+        method: "DELETE",
+        headers: authHeaders(token),
+      });
+      if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.message || "Delete failed"); }
+      toast({ title: "Category deleted!" });
+      setDeleteCategoryId(null);
+      loadCategories();
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+      setDeleteCategoryId(null);
     }
-    setShowAddCategory(false);
   };
-  const handleDeleteCategory = () => {
-    if (deleteCategoryId === null) return;
-    setCategories((prev) => deleteCategoryFromTree(prev, deleteCategoryId));
-    setDeleteCategoryId(null);
-    toast({ title: "Category deleted!" });
+
+  const handleCategoryToggleStatus = async (data: { _id: string; currentlyActive: boolean }) => {
+    const token = getToken();
+    if (!token) { router.push("/"); return; }
+    try {
+      const res = await fetch(`${API_BASE}/product/category-status`, {
+        method: "PATCH",
+        headers: jsonHeaders(token),
+        body: JSON.stringify({ categoryId: data._id, isActive: !data.currentlyActive }),
+      });
+      if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.message || "Update failed"); }
+      toast({ title: data.currentlyActive ? "Category paused!" : "Category activated!" });
+      setPauseCategoryData(null);
+      loadCategories();
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+      setPauseCategoryData(null);
+    }
   };
-  const handlePauseCategory = () => {
-    if (pauseCategoryId === null) return;
-    setCategories((prev) =>
-      updateCategoryTree(prev, pauseCategoryId, (c) => ({
-        ...c,
-        status: "Paused",
-      })),
-    );
-    setPauseCategoryId(null);
-    toast({ title: "Category paused!" });
-  };
-  const handleCategoryImageChange = (
-    e: React.ChangeEvent<HTMLInputElement>,
-  ) => {
+
+  const handleCategoryImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    categoryImageFileRef.current = file;
     const reader = new FileReader();
-    reader.onload = (ev) =>
-      setCategoryForm((f) => ({ ...f, image: ev.target?.result as string }));
+    reader.onload = (ev) => setCategoryForm((f) => ({ ...f, image: ev.target?.result as string }));
     reader.readAsDataURL(file);
   };
 
@@ -1040,29 +1009,43 @@ export default function ProductsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                <CategoryRows
-                  categories={
-                    categorySearch
-                      ? categories.filter((c) =>
-                          c.name
-                            .toLowerCase()
-                            .includes(categorySearch.toLowerCase()),
-                        )
-                      : categories
-                  }
-                  depth={0}
-                  onToggle={(id) =>
-                    setCategories((prev) =>
-                      updateCategoryTree(prev, id, (c) => ({
-                        ...c,
-                        expanded: !c.expanded,
-                      })),
-                    )
-                  }
-                  onEdit={openEditCategory}
-                  onDelete={(id) => setDeleteCategoryId(id)}
-                  onPause={(id) => setPauseCategoryId(id)}
-                />
+                {categoriesLoading ? (
+                  <tr>
+                    <td colSpan={5} className="px-4 py-12 text-center">
+                      <Loader2 className="h-6 w-6 animate-spin text-[#1a2b6b] mx-auto" />
+                    </td>
+                  </tr>
+                ) : categories.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="px-4 py-12 text-center text-gray-400 text-sm">
+                      No categories found.
+                    </td>
+                  </tr>
+                ) : (
+                  <CategoryRows
+                    categories={
+                      categorySearch
+                        ? categories.filter((c) =>
+                            c.name
+                              .toLowerCase()
+                              .includes(categorySearch.toLowerCase()),
+                          )
+                        : categories
+                    }
+                    depth={0}
+                    onToggle={(id) =>
+                      setCategories((prev) =>
+                        updateCategoryTree(prev, id, (c) => ({
+                          ...c,
+                          expanded: !c.expanded,
+                        })),
+                      )
+                    }
+                    onEdit={openEditCategory}
+                    onDelete={(id) => setDeleteCategoryId(id)}
+                    onPause={(id, currentlyActive) => setPauseCategoryData({ _id: id, currentlyActive })}
+                  />
+                )}
               </tbody>
             </table>
           </div>
@@ -1247,10 +1230,11 @@ export default function ProductsPage() {
                 Cancel
               </Button>
               <Button
-                className="bg-gray-200 hover:bg-gray-300 text-gray-700 uppercase tracking-wide px-6"
-                onClick={saveCategory}
-              >
-                Save
+                  className="bg-gray-200 hover:bg-gray-300 text-gray-700 uppercase tracking-wide px-6"
+                  onClick={saveCategory}
+                disabled={savingCategory}
+                >
+                  {savingCategory ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
               </Button>
             </div>
           </ModalOverlay>
@@ -1294,16 +1278,16 @@ export default function ProductsPage() {
         )}
       </AnimatePresence>
 
-      {/* â”€â”€ Pause Category Modal */}
+      {/* -- Pause / Activate Category Modal */}
       <AnimatePresence>
-        {pauseCategoryId !== null && (
-          <ModalOverlay onClose={() => setPauseCategoryId(null)}>
+        {pauseCategoryData !== null && (
+          <ModalOverlay onClose={() => setPauseCategoryData(null)}>
             <div className="flex items-center justify-between p-4 sm:p-5 border-b border-gray-100">
               <h3 className="text-base font-semibold text-[#1a2b6b]">
-                Pause Category?
+                {pauseCategoryData.currentlyActive ? "Pause Category?" : "Activate Category?"}
               </h3>
               <button
-                onClick={() => setPauseCategoryId(null)}
+                onClick={() => setPauseCategoryData(null)}
                 className="text-gray-400 hover:text-gray-600"
               >
                 <X className="h-5 w-5" />
@@ -1311,22 +1295,24 @@ export default function ProductsPage() {
             </div>
             <div className="px-6 py-8 text-center">
               <p className="text-gray-700">
-                Are you sure you want to pause this category?
+                {pauseCategoryData.currentlyActive
+                  ? "Are you sure you want to pause this category?"
+                  : "Are you sure you want to activate this category?"}
               </p>
             </div>
             <div className="flex items-center justify-center gap-3 px-6 pb-6">
               <Button
                 variant="outline"
                 className="border-gray-300 text-gray-600 uppercase tracking-wide px-6"
-                onClick={() => setPauseCategoryId(null)}
+                onClick={() => setPauseCategoryData(null)}
               >
                 Cancel
               </Button>
               <Button
                 className="bg-[#1a2b6b] hover:bg-[#142258] text-white px-6"
-                onClick={handlePauseCategory}
+                onClick={() => handleCategoryToggleStatus(pauseCategoryData)}
               >
-                Pause
+                {pauseCategoryData.currentlyActive ? "Pause" : "Activate"}
               </Button>
             </div>
           </ModalOverlay>

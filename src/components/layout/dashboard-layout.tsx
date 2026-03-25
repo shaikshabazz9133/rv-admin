@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { Sidebar } from "./sidebar";
@@ -14,13 +14,16 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const prevPathname = useRef(pathname);
 
-  // Show loader on route change
+  // Called immediately when the user clicks a nav link — starts bar right away
+  const handleNavigate = useCallback(() => {
+    setLoading(true);
+  }, []);
+
+  // Stop loader once the new page has actually rendered (pathname changed)
   useEffect(() => {
     if (prevPathname.current !== pathname) {
-      setLoading(true);
       prevPathname.current = pathname;
-      const t = setTimeout(() => setLoading(false), 600);
-      return () => clearTimeout(t);
+      setLoading(false);
     }
   }, [pathname]);
 
@@ -42,6 +45,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
         <Sidebar
           collapsed={collapsed}
           onToggle={() => setCollapsed(!collapsed)}
+          onNavigate={handleNavigate}
         />
       </div>
 
@@ -66,6 +70,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
               <Sidebar
                 collapsed={false}
                 onToggle={() => setMobileOpen(false)}
+                onNavigate={handleNavigate}
               />
             </motion.div>
           </>

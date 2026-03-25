@@ -11,7 +11,6 @@ import {
   MessageSquare,
   ShoppingCart,
   Tag,
-  UserCircle,
   Settings,
   FileText,
   Truck,
@@ -19,8 +18,10 @@ import {
   ChevronRight,
   Tent,
   Globe,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useState, useEffect } from "react";
 
 const navItems = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
@@ -39,10 +40,17 @@ const navItems = [
 interface SidebarProps {
   collapsed: boolean;
   onToggle: () => void;
+  onNavigate?: () => void;
 }
 
-export function Sidebar({ collapsed, onToggle }: SidebarProps) {
+export function Sidebar({ collapsed, onToggle, onNavigate }: SidebarProps) {
   const pathname = usePathname();
+  const [pendingHref, setPendingHref] = useState<string | null>(null);
+
+  // Clear pending state when navigation completes
+  useEffect(() => {
+    setPendingHref(null);
+  }, [pathname]);
 
   return (
     <motion.aside
@@ -82,28 +90,41 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
             const isActive =
               pathname === item.href ||
               (item.href !== "/dashboard" && pathname.startsWith(item.href));
+            const isPending = pendingHref === item.href;
             const Icon = item.icon;
 
             return (
               <li key={item.href}>
-                <Link href={item.href}>
+                <Link
+                  href={item.href}
+                  onClick={() => {
+                    if (!isActive) {
+                      setPendingHref(item.href);
+                      onNavigate?.();
+                    }
+                  }}
+                >
                   <motion.div
                     whileHover={{ x: collapsed ? 0 : 4 }}
                     whileTap={{ scale: 0.97 }}
                     className={cn(
                       "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150",
-                      isActive
+                      isActive || isPending
                         ? "bg-white/15 text-white shadow-sm"
                         : "text-white/60 hover:bg-white/8 hover:text-white",
                     )}
                     title={collapsed ? item.label : undefined}
                   >
-                    <Icon
-                      className={cn(
-                        "h-5 w-5 flex-shrink-0",
-                        isActive ? "text-orange-400" : "text-white/50",
-                      )}
-                    />
+                    {isPending ? (
+                      <Loader2 className="h-5 w-5 flex-shrink-0 animate-spin text-orange-400" />
+                    ) : (
+                      <Icon
+                        className={cn(
+                          "h-5 w-5 flex-shrink-0",
+                          isActive ? "text-orange-400" : "text-white/50",
+                        )}
+                      />
+                    )}
                     <AnimatePresence>
                       {!collapsed && (
                         <motion.span
@@ -117,10 +138,15 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                         </motion.span>
                       )}
                     </AnimatePresence>
-                    {isActive && (
+                    {(isActive || isPending) && (
                       <motion.div
                         layoutId="activeIndicator"
-                        className="ml-auto h-1.5 w-1.5 flex-shrink-0 rounded-full bg-orange-400"
+                        className={cn(
+                          "ml-auto h-1.5 w-1.5 flex-shrink-0 rounded-full",
+                          isPending
+                            ? "bg-orange-400 animate-pulse"
+                            : "bg-orange-400",
+                        )}
                       />
                     )}
                   </motion.div>
