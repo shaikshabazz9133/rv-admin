@@ -10,9 +10,10 @@ import {
   Play,
   ChevronLeft,
   ChevronRight,
-  Eye,
   KeyRound,
   Loader2,
+  Plus,
+  X,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
@@ -20,15 +21,7 @@ import { useRouter } from "next/navigation";
 
 const API_BASE = "https://dev-backend.rvadventureaustralia.com.au/api";
 
-// â”€â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-
-type OrderStatus =
-  | "Pending"
-  | "Confirmed"
-  | "Processing"
-  | "Dispatched"
-  | "Delivered"
-  | "Cancelled";
+// --- Types ---
 
 interface UserRecord {
   _id: string;
@@ -78,7 +71,25 @@ interface UserOrder {
   insertedAt: number;
 }
 
-// â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+interface EmployeeRecord {
+  _id: string;
+  name: string;
+  email: string;
+  countryCode?: string;
+  mobile?: string;
+  role: { _id: string; name: string };
+  isEmailVerified: boolean;
+  isActive: boolean;
+  insertedAt: number;
+  orders: number;
+}
+
+interface RoleOption {
+  _id: string;
+  name: string;
+}
+
+// --- Helpers ---
 
 function formatDate(ts: number) {
   return new Date(ts).toLocaleDateString("en-AU", {
@@ -100,7 +111,7 @@ function formatPaymentMode(mode: string) {
   return mode.replace(/_/g, " ");
 }
 
-// â”€â”€â”€ Order status badge â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// --- Order Status Badge ---
 
 const orderStatusConfig: Record<string, { bg: string; text: string }> = {
   Pending: { bg: "bg-amber-100", text: "text-amber-700" },
@@ -125,7 +136,7 @@ function OrderStatusBadge({ status }: { status: string }) {
   );
 }
 
-// â”€â”€â”€ Avatar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// --- Avatar ---
 
 function Avatar({ name }: { name: string }) {
   const initials = name
@@ -145,7 +156,7 @@ function Avatar({ name }: { name: string }) {
   );
 }
 
-// â”€â”€â”€ Pagination â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// --- Pagination ---
 
 const PER_PAGE_OPTIONS = [10, 25, 50];
 
@@ -166,7 +177,6 @@ function Pagination({
 }) {
   const from = total === 0 ? 0 : (page - 1) * perPage + 1;
   const to = Math.min(page * perPage, total);
-
   const visiblePages = (): (number | "...")[] => {
     if (totalPages <= 7)
       return Array.from({ length: totalPages }, (_, i) => i + 1);
@@ -182,7 +192,6 @@ function Pagination({
     pages.push(totalPages);
     return pages;
   };
-
   return (
     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-4 py-3 border-t border-gray-100">
       <div className="flex items-center gap-1.5">
@@ -206,7 +215,7 @@ function Pagination({
           </>
         )}
         <span className="text-xs text-gray-400 ml-1">
-          {from}â€“{to} of {total}
+          {from}&#8211;{to} of {total}
         </span>
       </div>
       <div className="flex items-center gap-2">
@@ -224,7 +233,7 @@ function Pagination({
                 key={`d${i}`}
                 className="w-7 text-center text-xs text-gray-400"
               >
-                â€¦
+                &#8230;
               </span>
             ) : (
               <button
@@ -249,13 +258,18 @@ function Pagination({
   );
 }
 
-// â”€â”€â”€ Main Page â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// --- Main Page ---
 
 export default function UsersPage() {
   const { toast } = useToast();
   const router = useRouter();
 
-  // â”€â”€ List state â”€â”€
+  // Main tab
+  const [mainTab, setMainTab] = useState<"customers" | "employees">(
+    "customers",
+  );
+
+  // Customer list state
   const [users, setUsers] = useState<UserRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -265,13 +279,13 @@ export default function UsersPage() {
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
 
-  // â”€â”€ Detail state â”€â”€
+  // Customer detail state
   const [view, setView] = useState<"list" | "detail">("list");
   const [selectedUser, setSelectedUser] = useState<UserRecord | null>(null);
   const [userDetail, setUserDetail] = useState<UserDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
 
-  // â”€â”€ Orders state (in detail view) â”€â”€
+  // Customer orders state
   const [orders, setOrders] = useState<UserOrder[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [orderPage, setOrderPage] = useState(1);
@@ -280,19 +294,46 @@ export default function UsersPage() {
   const [orderTotalPages, setOrderTotalPages] = useState(1);
   const [orderSearch, setOrderSearch] = useState("");
 
-  // â”€â”€ Edit state â”€â”€
+  // Customer edit/modal state
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState({ name: "", mobile: "" });
   const [editLoading, setEditLoading] = useState(false);
-
-  // â”€â”€ Modal state â”€â”€
   const [deleteTarget, setDeleteTarget] = useState<UserRecord | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [toggleTarget, setToggleTarget] = useState<UserRecord | null>(null);
   const [toggleLoading, setToggleLoading] = useState(false);
   const [resetTarget, setResetTarget] = useState<UserRecord | null>(null);
 
-  // â”€â”€ Auth helper â”€â”€
+  // Employee state
+  const [employees, setEmployees] = useState<EmployeeRecord[]>([]);
+  const [empLoading, setEmpLoading] = useState(false);
+  const [empSearch, setEmpSearch] = useState("");
+  const [empDebouncedSearch, setEmpDebouncedSearch] = useState("");
+  const [empPage, setEmpPage] = useState(1);
+  const [empPerPage, setEmpPerPage] = useState(25);
+  const [empTotal, setEmpTotal] = useState(0);
+  const [empTotalPages, setEmpTotalPages] = useState(1);
+  const [roles, setRoles] = useState<RoleOption[]>([]);
+
+  // Employee modals
+  const [showAddEmp, setShowAddEmp] = useState(false);
+  const [editEmp, setEditEmp] = useState<EmployeeRecord | null>(null);
+  const [empToggleTarget, setEmpToggleTarget] = useState<EmployeeRecord | null>(
+    null,
+  );
+  const [empToggleLoading, setEmpToggleLoading] = useState(false);
+  const [empFormLoading, setEmpFormLoading] = useState(false);
+
+  const defaultEmpForm = {
+    name: "",
+    email: "",
+    countryCode: "",
+    mobileNumber: "",
+    role: "",
+  };
+  const [empForm, setEmpForm] = useState(defaultEmpForm);
+
+  // Auth helpers
   const getToken = useCallback(() => {
     const token = sessionStorage.getItem("auth_token");
     if (!token) {
@@ -311,7 +352,7 @@ export default function UsersPage() {
     [],
   );
 
-  // â”€â”€ Debounce search â”€â”€
+  // Customer debounce
   useEffect(() => {
     const t = setTimeout(() => {
       setDebouncedSearch(search);
@@ -320,7 +361,16 @@ export default function UsersPage() {
     return () => clearTimeout(t);
   }, [search]);
 
-  // â”€â”€ Fetch users list â”€â”€
+  // Employee debounce
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setEmpDebouncedSearch(empSearch);
+      setEmpPage(1);
+    }, 400);
+    return () => clearTimeout(t);
+  }, [empSearch]);
+
+  // Fetch customers
   const fetchUsers = useCallback(async () => {
     const token = getToken();
     if (!token) return;
@@ -363,11 +413,73 @@ export default function UsersPage() {
   }, [page, perPage, debouncedSearch, getToken, authHeaders, router, toast]);
 
   useEffect(() => {
-    if (view === "list") fetchUsers();
+    if (view === "list" && mainTab === "customers") fetchUsers();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, perPage, debouncedSearch, view]);
+  }, [page, perPage, debouncedSearch, view, mainTab]);
 
-  // â”€â”€ Fetch user detail â”€â”€
+  // Fetch employees
+  const fetchEmployees = useCallback(async () => {
+    const token = getToken();
+    if (!token) return;
+    setEmpLoading(true);
+    try {
+      const params = new URLSearchParams({
+        pageNo: String(empPage),
+        pageSize: String(empPerPage),
+        onlyEndUsers: "0",
+      });
+      if (empDebouncedSearch) params.set("search", empDebouncedSearch);
+      const res = await fetch(`${API_BASE}/user/all?${params}`, {
+        headers: {
+          authorization: `Bearer ${token}`,
+          "x-app-client": "USER_PANEL",
+          accept: "application/json",
+        },
+      });
+      if (!res.ok) throw new Error(`Server error (${res.status})`);
+      const json = await res.json();
+      setEmployees(json.records ?? json.data?.records ?? []);
+      setEmpTotal(json.totalRecords ?? json.data?.totalRecords ?? 0);
+      setEmpTotalPages(json.totalPages ?? json.data?.totalPages ?? 1);
+    } catch (err: unknown) {
+      toast({
+        title: "Failed to load employees",
+        description:
+          err instanceof Error ? err.message : "Please check your connection.",
+        variant: "destructive",
+      });
+    } finally {
+      setEmpLoading(false);
+    }
+  }, [empPage, empPerPage, empDebouncedSearch, getToken, toast]);
+
+  useEffect(() => {
+    if (mainTab === "employees") fetchEmployees();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [empPage, empPerPage, empDebouncedSearch, mainTab]);
+
+  // Fetch roles
+  const fetchRoles = useCallback(async () => {
+    const token = getToken();
+    if (!token) return;
+    try {
+      const res = await fetch(`${API_BASE}/role/list?pageNo=1&pageSize=100`, {
+        headers: authHeaders(token),
+      });
+      if (!res.ok) return;
+      const json = await res.json();
+      const records: RoleOption[] = json.data?.records ?? json.records ?? [];
+      if (records.length > 0) setRoles(records);
+    } catch {
+      // silently ignore
+    }
+  }, [getToken, authHeaders]);
+
+  useEffect(() => {
+    if (mainTab === "employees" && roles.length === 0) fetchRoles();
+  }, [mainTab, roles.length, fetchRoles]);
+
+  // Fetch user detail
   const fetchUserDetail = useCallback(
     async (userId: string) => {
       const token = getToken();
@@ -397,7 +509,7 @@ export default function UsersPage() {
     [getToken, authHeaders, toast],
   );
 
-  // â”€â”€ Fetch user orders â”€â”€
+  // Fetch user orders
   const fetchUserOrders = useCallback(
     async (userId: string, pg = 1, pgSize = 25) => {
       const token = getToken();
@@ -450,13 +562,12 @@ export default function UsersPage() {
   };
 
   useEffect(() => {
-    if (view === "detail" && selectedUser) {
+    if (view === "detail" && selectedUser)
       fetchUserOrders(selectedUser._id, orderPage, orderPerPage);
-    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orderPage, orderPerPage]);
 
-  // â”€â”€ Edit (name + mobile) â”€â”€
+  // Customer update
   const handleUpdate = async () => {
     if (!selectedUser) return;
     const token = getToken();
@@ -479,7 +590,6 @@ export default function UsersPage() {
       if (!res.ok) throw new Error(`Server error (${res.status})`);
       const json = await res.json();
       if (!json.status) throw new Error(json.message || "Update failed");
-      // Update local list
       const updated: UserRecord = {
         ...selectedUser,
         name: editForm.name,
@@ -505,7 +615,7 @@ export default function UsersPage() {
     }
   };
 
-  // â”€â”€ Toggle active/blocked â”€â”€
+  // Customer toggle
   const handleToggle = async () => {
     if (!toggleTarget) return;
     const token = getToken();
@@ -555,7 +665,7 @@ export default function UsersPage() {
     }
   };
 
-  // â”€â”€ Delete â”€â”€
+  // Customer delete
   const handleDelete = async () => {
     if (!deleteTarget) return;
     const token = getToken();
@@ -593,7 +703,165 @@ export default function UsersPage() {
     }
   };
 
-  // â”€â”€ Filtered orders for search (client-side within loaded page) â”€â”€
+  // Employee add
+  const handleAddEmployee = async () => {
+    if (!empForm.name.trim() || !empForm.email.trim() || !empForm.role) {
+      toast({
+        title: "Name, email and role are required",
+        variant: "destructive",
+      });
+      return;
+    }
+    const token = getToken();
+    if (!token) return;
+    setEmpFormLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/user/account`, {
+        method: "POST",
+        headers: { ...authHeaders(token), "content-type": "application/json" },
+        body: JSON.stringify({
+          name: empForm.name,
+          email: empForm.email,
+          countryCode: empForm.countryCode,
+          mobileNumber: empForm.mobileNumber,
+          role: empForm.role,
+        }),
+      });
+      let json: Record<string, unknown> = {};
+      try {
+        json = await res.json();
+      } catch {
+        /* empty */
+      }
+      if (!res.ok)
+        throw new Error((json?.message as string) || "Failed to add employee");
+      toast({ title: "Employee added successfully" });
+      setShowAddEmp(false);
+      setEmpForm(defaultEmpForm);
+      fetchEmployees();
+    } catch (err: unknown) {
+      toast({
+        title: "Failed to add employee",
+        description: err instanceof Error ? err.message : "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setEmpFormLoading(false);
+    }
+  };
+
+  // Employee edit
+  const handleEditEmployee = async () => {
+    if (!editEmp) return;
+    if (!empForm.name.trim() || !empForm.email.trim() || !empForm.role) {
+      toast({
+        title: "Name, email and role are required",
+        variant: "destructive",
+      });
+      return;
+    }
+    const token = getToken();
+    if (!token) return;
+    setEmpFormLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/user/account`, {
+        method: "PATCH",
+        headers: { ...authHeaders(token), "content-type": "application/json" },
+        body: JSON.stringify({
+          userId: editEmp._id,
+          name: empForm.name,
+          email: empForm.email,
+          countryCode: empForm.countryCode,
+          mobileNumber: empForm.mobileNumber,
+          role: empForm.role,
+        }),
+      });
+      let json: Record<string, unknown> = {};
+      try {
+        json = await res.json();
+      } catch {
+        /* empty */
+      }
+      if (!res.ok)
+        throw new Error(
+          (json?.message as string) || "Failed to update employee",
+        );
+      toast({ title: "Employee updated successfully" });
+      setEditEmp(null);
+      setEmpForm(defaultEmpForm);
+      fetchEmployees();
+    } catch (err: unknown) {
+      toast({
+        title: "Failed to update employee",
+        description: err instanceof Error ? err.message : "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setEmpFormLoading(false);
+    }
+  };
+
+  // Employee toggle
+  const handleEmpToggle = async () => {
+    if (!empToggleTarget) return;
+    const token = getToken();
+    if (!token) return;
+    setEmpToggleLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/user/account-status`, {
+        method: "PATCH",
+        headers: { ...authHeaders(token), "content-type": "application/json" },
+        body: JSON.stringify({
+          userId: empToggleTarget._id,
+          isActive: !empToggleTarget.isActive,
+        }),
+      });
+      let json: Record<string, unknown> = {};
+      try {
+        json = await res.json();
+      } catch {
+        /* empty */
+      }
+      if (!res.ok) throw new Error((json?.message as string) || "Failed");
+      const updated: EmployeeRecord = {
+        ...empToggleTarget,
+        isActive: !empToggleTarget.isActive,
+      };
+      setEmployees((prev) =>
+        prev.map((e) => (e._id === empToggleTarget._id ? updated : e)),
+      );
+      toast({
+        title: `Employee ${updated.isActive ? "activated" : "deactivated"} successfully`,
+      });
+      setEmpToggleTarget(null);
+    } catch (err: unknown) {
+      toast({
+        title: "Action failed",
+        description: err instanceof Error ? err.message : "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setEmpToggleLoading(false);
+    }
+  };
+
+  const openEditEmp = (emp: EmployeeRecord) => {
+    setEditEmp(emp);
+    setEmpForm({
+      name: emp.name,
+      email: emp.email,
+      countryCode: emp.countryCode ?? "",
+      mobileNumber: emp.mobile ?? "",
+      role: emp.role?._id ?? "",
+    });
+  };
+
+  const closeEmpForm = () => {
+    setShowAddEmp(false);
+    setEditEmp(null);
+    setEmpForm(defaultEmpForm);
+  };
+
   const filteredOrders = orders.filter(
     (o) =>
       o.orderId.toLowerCase().includes(orderSearch.toLowerCase()) ||
@@ -602,7 +870,7 @@ export default function UsersPage() {
         .includes(orderSearch.toLowerCase()),
   );
 
-  // â”€â”€â”€ LIST VIEW â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // --- LIST VIEW ---
   if (view === "list") {
     return (
       <motion.div
@@ -610,140 +878,297 @@ export default function UsersPage() {
         animate={{ opacity: 1, y: 0 }}
         className="p-4 sm:p-6 space-y-4"
       >
-        <div className="relative max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-          <Input
-            placeholder="Search users..."
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              setPage(1);
-            }}
-            className="pl-9 bg-white"
-          />
+        {/* Tabs */}
+        <div className="flex gap-1 border-b border-gray-200">
+          {(["customers", "employees"] as const).map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setMainTab(tab)}
+              className={`px-5 py-2.5 text-sm font-semibold capitalize transition-all border-b-2 -mb-px ${
+                mainTab === tab
+                  ? "border-[#1a2b6b] text-[#1a2b6b]"
+                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+              }`}
+            >
+              {tab === "customers" ? "Customers" : "Employee"}
+            </button>
+          ))}
         </div>
 
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-gray-200 bg-gray-50">
-                  <th className="text-left px-4 py-3 font-semibold text-[#1a2b6b]">
-                    User Name
-                  </th>
-                  <th className="text-left px-4 py-3 font-semibold text-gray-700 hidden sm:table-cell">
-                    Email Id
-                  </th>
-                  <th className="text-left px-4 py-3 font-semibold text-gray-700 hidden md:table-cell">
-                    Mobile Number
-                  </th>
-                  <th className="text-left px-4 py-3 font-semibold text-gray-700 hidden lg:table-cell">
-                    No of Orders
-                  </th>
-                  <th className="px-4 py-3 font-semibold text-gray-700 text-right">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {loading ? (
-                  <tr>
-                    <td colSpan={5} className="px-4 py-10 text-center">
-                      <Loader2 className="h-6 w-6 animate-spin text-[#1a2b6b] mx-auto" />
-                    </td>
-                  </tr>
-                ) : users.length === 0 ? (
-                  <tr>
-                    <td
-                      colSpan={5}
-                      className="px-4 py-12 text-center text-gray-400"
-                    >
-                      No users found.
-                    </td>
-                  </tr>
-                ) : (
-                  users.map((u) => (
-                    <tr
-                      key={u._id}
-                      className="hover:bg-gray-50 transition-colors"
-                    >
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2.5">
-                          <Avatar name={u.name} />
-                          <span className="font-medium text-gray-900 text-sm">
-                            {u.name}
-                          </span>
-                          {!u.isActive && (
-                            <span className="text-xs px-1.5 py-0.5 bg-red-100 text-red-600 rounded font-medium">
-                              Blocked
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-gray-600 text-xs hidden sm:table-cell">
-                        {u.email}
-                      </td>
-                      <td className="px-4 py-3 text-gray-600 text-xs hidden md:table-cell">
-                        {u.mobile
-                          ? `${u.countryCode ?? ""} ${u.mobile}`.trim()
-                          : "â€”"}
-                      </td>
-                      <td className="px-4 py-3 font-semibold text-gray-800 text-sm hidden lg:table-cell">
-                        {u.orders}
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center justify-end gap-1">
-                          <button
-                            onClick={() => openDetail(u)}
-                            className="p-1.5 rounded-lg text-gray-400 hover:text-[#1a2b6b] hover:bg-blue-50 transition-colors"
-                            title="View"
-                          >
-                            <Eye className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => openDetail(u, true)}
-                            className="p-1.5 rounded-lg text-gray-400 hover:text-[#1a2b6b] hover:bg-blue-50 transition-colors"
-                            title="Edit"
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => setDeleteTarget(u)}
-                            className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
-                            title="Delete"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => setToggleTarget(u)}
-                            className={`p-1.5 rounded-lg transition-colors ${!u.isActive ? "text-green-500 bg-green-50 hover:bg-green-100" : "text-gray-400 hover:text-amber-600 hover:bg-amber-50"}`}
-                            title={u.isActive ? "Block" : "Activate"}
-                          >
-                            {u.isActive ? (
-                              <Pause className="h-4 w-4" />
-                            ) : (
-                              <Play className="h-4 w-4" />
-                            )}
-                          </button>
-                        </div>
-                      </td>
+        {/* Customers Tab */}
+        {mainTab === "customers" && (
+          <>
+            <div className="relative max-w-md">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Input
+                placeholder="Search customers..."
+                value={search}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setPage(1);
+                }}
+                className="pl-9 bg-white"
+              />
+            </div>
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-gray-200 bg-gray-50">
+                      <th className="text-left px-4 py-3 font-semibold text-[#1a2b6b]">
+                        User Name
+                      </th>
+                      <th className="text-left px-4 py-3 font-semibold text-gray-700 hidden sm:table-cell">
+                        Email Id
+                      </th>
+                      <th className="text-left px-4 py-3 font-semibold text-gray-700 hidden md:table-cell">
+                        Mobile Number
+                      </th>
+                      <th className="text-left px-4 py-3 font-semibold text-gray-700 hidden lg:table-cell">
+                        No of Orders
+                      </th>
+                      <th className="px-4 py-3 font-semibold text-gray-700 text-right">
+                        Actions
+                      </th>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-          <Pagination
-            page={page}
-            totalPages={totalPages}
-            total={total}
-            perPage={perPage}
-            onPage={setPage}
-            onPerPage={setPerPage}
-          />
-        </div>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {loading ? (
+                      <tr>
+                        <td colSpan={5} className="px-4 py-10 text-center">
+                          <Loader2 className="h-6 w-6 animate-spin text-[#1a2b6b] mx-auto" />
+                        </td>
+                      </tr>
+                    ) : users.length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan={5}
+                          className="px-4 py-12 text-center text-gray-400"
+                        >
+                          No customers found.
+                        </td>
+                      </tr>
+                    ) : (
+                      users.map((u) => (
+                        <tr
+                          key={u._id}
+                          className="hover:bg-gray-50 transition-colors"
+                        >
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-2.5">
+                              <Avatar name={u.name} />
+                              <span className="font-medium text-gray-900 text-sm">
+                                {u.name}
+                              </span>
+                              {!u.isActive && (
+                                <span className="text-xs px-1.5 py-0.5 bg-red-100 text-red-600 rounded font-medium">
+                                  Blocked
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 text-gray-600 text-xs hidden sm:table-cell">
+                            {u.email}
+                          </td>
+                          <td className="px-4 py-3 text-gray-600 text-xs hidden md:table-cell">
+                            {u.mobile
+                              ? `${u.countryCode ?? ""} ${u.mobile}`.trim()
+                              : "—"}
+                          </td>
+                          <td className="px-4 py-3 font-semibold text-gray-800 text-sm hidden lg:table-cell">
+                            {u.orders}
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center justify-end gap-1">
+                              <button
+                                onClick={() => openDetail(u, true)}
+                                className="p-1.5 rounded-lg text-gray-400 hover:text-[#1a2b6b] hover:bg-blue-50 transition-colors"
+                                title="Edit"
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </button>
+                              <button
+                                onClick={() => setDeleteTarget(u)}
+                                className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                                title="Delete"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                              <button
+                                onClick={() => setToggleTarget(u)}
+                                className={`p-1.5 rounded-lg transition-colors ${!u.isActive ? "text-green-500 bg-green-50 hover:bg-green-100" : "text-gray-400 hover:text-amber-600 hover:bg-amber-50"}`}
+                                title={u.isActive ? "Block" : "Activate"}
+                              >
+                                {u.isActive ? (
+                                  <Pause className="h-4 w-4" />
+                                ) : (
+                                  <Play className="h-4 w-4" />
+                                )}
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+              <Pagination
+                page={page}
+                totalPages={totalPages}
+                total={total}
+                perPage={perPage}
+                onPage={setPage}
+                onPerPage={setPerPage}
+              />
+            </div>
+          </>
+        )}
 
-        {/* Delete modal */}
+        {/* Employee Tab */}
+        {mainTab === "employees" && (
+          <>
+            <div className="flex items-center gap-3 flex-wrap">
+              <div className="relative flex-1 min-w-[200px] max-w-md">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input
+                  placeholder="Search by name..."
+                  value={empSearch}
+                  onChange={(e) => {
+                    setEmpSearch(e.target.value);
+                    setEmpPage(1);
+                  }}
+                  className="pl-9 bg-white"
+                />
+              </div>
+              <button
+                onClick={() => {
+                  setEmpForm(defaultEmpForm);
+                  setShowAddEmp(true);
+                  if (roles.length === 0) fetchRoles();
+                }}
+                className="h-9 px-4 bg-[#1a2b6b] hover:bg-[#142258] text-white text-sm font-semibold rounded-lg transition-colors flex items-center gap-1.5 shrink-0"
+              >
+                <Plus className="h-4 w-4" />
+                Add Employee
+              </button>
+            </div>
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-gray-200 bg-gray-50">
+                      <th className="text-left px-4 py-3 font-semibold text-[#1a2b6b]">
+                        Name
+                      </th>
+                      <th className="text-left px-4 py-3 font-semibold text-gray-700 hidden sm:table-cell">
+                        Email Id
+                      </th>
+                      <th className="text-left px-4 py-3 font-semibold text-gray-700 hidden md:table-cell">
+                        Mobile Number
+                      </th>
+                      <th className="text-left px-4 py-3 font-semibold text-gray-700 hidden lg:table-cell">
+                        Role
+                      </th>
+                      <th className="text-left px-4 py-3 font-semibold text-gray-700">
+                        Status
+                      </th>
+                      <th className="px-4 py-3 font-semibold text-gray-700 text-right">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {empLoading ? (
+                      <tr>
+                        <td colSpan={6} className="px-4 py-10 text-center">
+                          <Loader2 className="h-6 w-6 animate-spin text-[#1a2b6b] mx-auto" />
+                        </td>
+                      </tr>
+                    ) : employees.length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan={6}
+                          className="px-4 py-12 text-center text-gray-400"
+                        >
+                          No employees found.
+                        </td>
+                      </tr>
+                    ) : (
+                      employees.map((emp) => (
+                        <tr
+                          key={emp._id}
+                          className="hover:bg-gray-50 transition-colors"
+                        >
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-2.5">
+                              <Avatar name={emp.name} />
+                              <span className="font-medium text-gray-900 text-sm">
+                                {emp.name}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 text-gray-600 text-xs hidden sm:table-cell">
+                            {emp.email}
+                          </td>
+                          <td className="px-4 py-3 text-gray-600 text-xs hidden md:table-cell">
+                            {emp.mobile
+                              ? `${emp.countryCode ?? ""} ${emp.mobile}`.trim()
+                              : "—"}
+                          </td>
+                          <td className="px-4 py-3 hidden lg:table-cell">
+                            <span className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-xs font-semibold">
+                              {emp.role?.name ?? "—"}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span
+                              className={`px-2.5 py-1 rounded-full text-xs font-semibold ${emp.isActive ? "bg-green-50 text-green-700" : "bg-red-50 text-red-600"}`}
+                            >
+                              {emp.isActive ? "Active" : "Inactive"}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center justify-end gap-1">
+                              <button
+                                onClick={() => openEditEmp(emp)}
+                                className="p-1.5 rounded-lg text-gray-400 hover:text-[#1a2b6b] hover:bg-blue-50 transition-colors"
+                                title="Edit"
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </button>
+                              <button
+                                onClick={() => setEmpToggleTarget(emp)}
+                                className={`p-1.5 rounded-lg transition-colors ${!emp.isActive ? "text-green-500 bg-green-50 hover:bg-green-100" : "text-gray-400 hover:text-amber-600 hover:bg-amber-50"}`}
+                                title={emp.isActive ? "Deactivate" : "Activate"}
+                              >
+                                {emp.isActive ? (
+                                  <Pause className="h-4 w-4" />
+                                ) : (
+                                  <Play className="h-4 w-4" />
+                                )}
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+              <Pagination
+                page={empPage}
+                totalPages={empTotalPages}
+                total={empTotal}
+                perPage={empPerPage}
+                onPage={setEmpPage}
+                onPerPage={setEmpPerPage}
+              />
+            </div>
+          </>
+        )}
+
+        {/* Customer Modals */}
         <AnimatePresence>
           {deleteTarget && (
             <motion.div
@@ -797,10 +1222,6 @@ export default function UsersPage() {
               </motion.div>
             </motion.div>
           )}
-        </AnimatePresence>
-
-        {/* Toggle active modal */}
-        <AnimatePresence>
           {toggleTarget && (
             <motion.div
               initial={{ opacity: 0 }}
@@ -859,12 +1280,209 @@ export default function UsersPage() {
               </motion.div>
             </motion.div>
           )}
+
+          {/* Employee Form Modal */}
+          {(showAddEmp || editEmp) && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
+              onClick={(e) => {
+                if (e.target === e.currentTarget && !empFormLoading)
+                  closeEmpForm();
+              }}
+            >
+              <motion.div
+                initial={{ scale: 0.95, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.95, opacity: 0 }}
+                className="bg-white rounded-2xl shadow-2xl w-full max-w-md"
+              >
+                <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+                  <h3 className="font-bold text-[#1a2b6b] text-lg">
+                    {editEmp ? "Edit Employee" : "Add Employee"}
+                  </h3>
+                  <button
+                    onClick={closeEmpForm}
+                    disabled={empFormLoading}
+                    className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+                <div className="p-6 space-y-4">
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-semibold text-gray-700">
+                      Name <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      value={empForm.name}
+                      onChange={(e) =>
+                        setEmpForm((f) => ({ ...f, name: e.target.value }))
+                      }
+                      placeholder="Enter full name"
+                      className="w-full h-9 px-3 border border-gray-200 rounded-lg text-sm text-foreground outline-none focus:ring-2 focus:ring-[#1a2b6b]/20 focus:border-[#1a2b6b] transition-colors"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-semibold text-gray-700">
+                      Email <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="email"
+                      value={empForm.email}
+                      onChange={(e) =>
+                        setEmpForm((f) => ({ ...f, email: e.target.value }))
+                      }
+                      placeholder="Enter email address"
+                      className="w-full h-9 px-3 border border-gray-200 rounded-lg text-sm text-foreground outline-none focus:ring-2 focus:ring-[#1a2b6b]/20 focus:border-[#1a2b6b] transition-colors"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <label className="text-sm font-semibold text-gray-700">
+                        Country Code
+                      </label>
+                      <input
+                        value={empForm.countryCode}
+                        onChange={(e) =>
+                          setEmpForm((f) => ({
+                            ...f,
+                            countryCode: e.target.value,
+                          }))
+                        }
+                        placeholder="e.g. 61"
+                        className="w-full h-9 px-3 border border-gray-200 rounded-lg text-sm text-foreground outline-none focus:ring-2 focus:ring-[#1a2b6b]/20 focus:border-[#1a2b6b] transition-colors"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-sm font-semibold text-gray-700">
+                        Mobile Number
+                      </label>
+                      <input
+                        value={empForm.mobileNumber}
+                        onChange={(e) =>
+                          setEmpForm((f) => ({
+                            ...f,
+                            mobileNumber: e.target.value,
+                          }))
+                        }
+                        placeholder="Mobile number"
+                        className="w-full h-9 px-3 border border-gray-200 rounded-lg text-sm text-foreground outline-none focus:ring-2 focus:ring-[#1a2b6b]/20 focus:border-[#1a2b6b] transition-colors"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-semibold text-gray-700">
+                      Role <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      value={empForm.role}
+                      onChange={(e) =>
+                        setEmpForm((f) => ({ ...f, role: e.target.value }))
+                      }
+                      className="w-full h-9 px-3 border border-gray-200 rounded-lg text-sm text-foreground outline-none focus:ring-2 focus:ring-[#1a2b6b]/20 focus:border-[#1a2b6b] transition-colors bg-white"
+                    >
+                      <option value="">Select role...</option>
+                      {roles.map((r) => (
+                        <option key={r._id} value={r._id}>
+                          {r.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <div className="flex gap-3 px-6 pb-6">
+                  <button
+                    onClick={closeEmpForm}
+                    disabled={empFormLoading}
+                    className="flex-1 h-10 border border-gray-200 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={editEmp ? handleEditEmployee : handleAddEmployee}
+                    disabled={empFormLoading}
+                    className="flex-1 h-10 bg-[#1a2b6b] hover:bg-[#142258] text-white rounded-lg text-sm font-semibold transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {empFormLoading && (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    )}
+                    {editEmp ? "Update" : "Add Employee"}
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+
+          {/* Employee Toggle Modal */}
+          {empToggleTarget && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
+              onClick={(e) => {
+                if (e.target === e.currentTarget && !empToggleLoading)
+                  setEmpToggleTarget(null);
+              }}
+            >
+              <motion.div
+                initial={{ scale: 0.95, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.95, opacity: 0 }}
+                className="bg-white rounded-xl shadow-2xl w-full max-w-sm p-6 text-center"
+              >
+                <div
+                  className={`w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 ${empToggleTarget.isActive ? "bg-amber-100" : "bg-green-100"}`}
+                >
+                  {empToggleTarget.isActive ? (
+                    <Pause className="h-6 w-6 text-amber-600" />
+                  ) : (
+                    <Play className="h-6 w-6 text-green-600" />
+                  )}
+                </div>
+                <h3 className="font-bold text-gray-900 text-lg mb-1">
+                  {empToggleTarget.isActive
+                    ? "Deactivate Employee?"
+                    : "Activate Employee?"}
+                </h3>
+                <p className="text-sm text-gray-500 mb-6">
+                  {empToggleTarget.isActive ? "Deactivate" : "Activate"}{" "}
+                  <span className="font-semibold text-gray-800">
+                    {empToggleTarget.name}
+                  </span>
+                  ?
+                </p>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setEmpToggleTarget(null)}
+                    disabled={empToggleLoading}
+                    className="flex-1 h-10 border border-gray-200 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleEmpToggle}
+                    disabled={empToggleLoading}
+                    className={`flex-1 h-10 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2 ${empToggleTarget.isActive ? "bg-amber-500 hover:bg-amber-600" : "bg-green-600 hover:bg-green-700"}`}
+                  >
+                    {empToggleLoading && (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    )}
+                    {empToggleTarget.isActive ? "Deactivate" : "Activate"}
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
         </AnimatePresence>
       </motion.div>
     );
   }
 
-  // â”€â”€â”€ DETAIL VIEW â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // --- DETAIL VIEW (customers only) ---
   if (!selectedUser) return null;
 
   return (
@@ -973,7 +1591,7 @@ export default function UsersPage() {
                   onChange={(e) =>
                     setEditForm((f) => ({ ...f, name: e.target.value }))
                   }
-                  className="w-full h-8 px-2 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-[#1a2b6b]/20 focus:border-[#1a2b6b] transition-colors"
+                  className="w-full h-8 px-2 border border-gray-200 rounded-lg text-sm text-foreground outline-none focus:ring-2 focus:ring-[#1a2b6b]/20 focus:border-[#1a2b6b] transition-colors"
                 />
               ) : (
                 <p className="text-sm text-gray-900 font-medium">
@@ -997,14 +1615,14 @@ export default function UsersPage() {
                   onChange={(e) =>
                     setEditForm((f) => ({ ...f, mobile: e.target.value }))
                   }
-                  className="w-full h-8 px-2 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-[#1a2b6b]/20 focus:border-[#1a2b6b] transition-colors"
                   placeholder="Mobile number"
+                  className="w-full h-8 px-2 border border-gray-200 rounded-lg text-sm text-foreground outline-none focus:ring-2 focus:ring-[#1a2b6b]/20 focus:border-[#1a2b6b] transition-colors"
                 />
               ) : (
                 <p className="text-sm text-gray-700">
                   {userDetail?.mobile
                     ? `${userDetail.countryCode ?? ""} ${userDetail.mobile}`.trim()
-                    : "â€”"}
+                    : "—"}
                 </p>
               )}
             </div>
@@ -1152,7 +1770,7 @@ export default function UsersPage() {
         />
       </div>
 
-      {/* Modals */}
+      {/* Detail Modals */}
       <AnimatePresence>
         {deleteTarget && (
           <motion.div

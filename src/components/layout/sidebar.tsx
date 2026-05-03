@@ -19,6 +19,7 @@ import {
   Tent,
   Globe,
   Loader2,
+  BookOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState, useEffect } from "react";
@@ -32,6 +33,7 @@ const navItems = [
   { label: "Orders", href: "/dashboard/orders", icon: ShoppingCart },
   { label: "Offers", href: "/dashboard/offers", icon: Tag },
   { label: "Users", href: "/dashboard/users", icon: Users },
+  { label: "Blogs", href: "/dashboard/blogs", icon: BookOpen },
   { label: "Footer Options", href: "/dashboard/footer", icon: Globe },
   { label: "Settings", href: "/dashboard/settings", icon: Settings },
   { label: "Policies", href: "/dashboard/policies", icon: FileText },

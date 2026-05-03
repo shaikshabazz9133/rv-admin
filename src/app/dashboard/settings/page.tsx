@@ -267,13 +267,19 @@ function ShippingTab() {
 
   const loadCharges = useCallback(async () => {
     const token = getToken();
-    if (!token) { router.push("/"); return; }
+    if (!token) {
+      router.push("/");
+      return;
+    }
     setLoading(true);
     try {
       const res = await fetch(`${API_BASE}/supplier/charges`, {
         headers: authHeaders(token),
       });
-      if (res.status === 401) { router.push("/"); return; }
+      if (res.status === 401) {
+        router.push("/");
+        return;
+      }
       const d = await res.json();
       if (d.status && Array.isArray(d.data)) {
         const flattened: ShippingRow[] = [];
@@ -295,13 +301,19 @@ function ShippingTab() {
         setRows(flattened);
       }
     } catch {
-      toast({ title: "Error", description: "Failed to load shipping charges.", variant: "destructive" });
+      toast({
+        title: "Error",
+        description: "Failed to load shipping charges.",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
   }, [router, toast]);
 
-  useEffect(() => { loadCharges(); }, [loadCharges]);
+  useEffect(() => {
+    loadCharges();
+  }, [loadCharges]);
 
   const openEdit = (row: ShippingRow) => {
     setEditRow({ ...row });
@@ -327,7 +339,10 @@ function ShippingTab() {
   const handleSave = async () => {
     if (!editRow || !validate()) return;
     const token = getToken();
-    if (!token) { router.push("/"); return; }
+    if (!token) {
+      router.push("/");
+      return;
+    }
     setSaving(true);
     try {
       const res = await fetch(`${API_BASE}/supplier/charges`, {
@@ -344,13 +359,26 @@ function ShippingTab() {
           expressPricePerKg: editRow.expressPricePerKg,
         }),
       });
-      if (res.status === 401) { router.push("/"); return; }
+      if (res.status === 401) {
+        router.push("/");
+        return;
+      }
       if (!res.ok) throw new Error("Save failed");
-      setRows((r) => r.map((x) => x.groupId === editRow.groupId ? editRow : x));
+      setRows((r) =>
+        r.map((x) => (x.groupId === editRow.groupId ? editRow : x)),
+      );
       setOpen(false);
-      toast({ title: "Saved", description: "Shipping price updated.", variant: "success" as any });
+      toast({
+        title: "Saved",
+        description: "Shipping price updated.",
+        variant: "success" as any,
+      });
     } catch {
-      toast({ title: "Error", description: "Failed to save shipping price.", variant: "destructive" });
+      toast({
+        title: "Error",
+        description: "Failed to save shipping price.",
+        variant: "destructive",
+      });
     } finally {
       setSaving(false);
     }
@@ -358,20 +386,34 @@ function ShippingTab() {
 
   const handleDelete = async (row: ShippingRow) => {
     const token = getToken();
-    if (!token) { router.push("/"); return; }
+    if (!token) {
+      router.push("/");
+      return;
+    }
     setDeleting(true);
     try {
       const res = await fetch(
         `${API_BASE}/supplier/charges/${row.stateId}/groups/${row.groupId}`,
-        { method: "DELETE", headers: authHeaders(token) }
+        { method: "DELETE", headers: authHeaders(token) },
       );
-      if (res.status === 401) { router.push("/"); return; }
+      if (res.status === 401) {
+        router.push("/");
+        return;
+      }
       if (!res.ok) throw new Error("Delete failed");
       setRows((r) => r.filter((x) => x.groupId !== row.groupId));
       setDeleteTarget(null);
-      toast({ title: "Deleted", description: "Shipping zone removed.", variant: "destructive" });
+      toast({
+        title: "Deleted",
+        description: "Shipping zone removed.",
+        variant: "destructive",
+      });
     } catch {
-      toast({ title: "Error", description: "Failed to delete shipping zone.", variant: "destructive" });
+      toast({
+        title: "Error",
+        description: "Failed to delete shipping zone.",
+        variant: "destructive",
+      });
     } finally {
       setDeleting(false);
     }
@@ -420,7 +462,10 @@ function ShippingTab() {
             </thead>
             <tbody className="divide-y divide-gray-100">
               {paged.map((row) => (
-                <tr key={row.groupId} className="hover:bg-gray-50 transition-colors">
+                <tr
+                  key={row.groupId}
+                  className="hover:bg-gray-50 transition-colors"
+                >
                   <td className="px-4 py-3 text-gray-900 text-xs font-medium whitespace-nowrap">
                     {row.state}
                   </td>
@@ -468,7 +513,10 @@ function ShippingTab() {
               ))}
               {rows.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="px-4 py-10 text-center text-gray-400">
+                  <td
+                    colSpan={8}
+                    className="px-4 py-10 text-center text-gray-400"
+                  >
                     No shipping data found.
                   </td>
                 </tr>
@@ -500,55 +548,83 @@ function ShippingTab() {
                   <div className={readonlyCls}>{editRow.zone}</div>
                 </Field>
                 <Field label="Total Postal Codes">
-                  <div className={readonlyCls}>{editRow.postalCodes.length} codes</div>
+                  <div className={readonlyCls}>
+                    {editRow.postalCodes.length} codes
+                  </div>
                 </Field>
                 <div />
-                <Field label="Standard Shipping Base Price ($AUD)" error={errors.basePrice}>
+                <Field
+                  label="Standard Shipping Base Price ($AUD)"
+                  error={errors.basePrice}
+                >
                   <input
                     type="number"
                     step="0.01"
                     min="0"
                     value={editRow.basePrice}
                     onChange={(e) =>
-                      setEditRow({ ...editRow, basePrice: parseFloat(e.target.value) || 0 })
+                      setEditRow({
+                        ...editRow,
+                        basePrice: parseFloat(e.target.value) || 0,
+                      })
                     }
                     className={errors.basePrice ? inputErrCls : inputCls}
                   />
                 </Field>
-                <Field label="Standard Shipping Per kg Price ($AUD)" error={errors.pricePerKg}>
+                <Field
+                  label="Standard Shipping Per kg Price ($AUD)"
+                  error={errors.pricePerKg}
+                >
                   <input
                     type="number"
                     step="0.01"
                     min="0"
                     value={editRow.pricePerKg}
                     onChange={(e) =>
-                      setEditRow({ ...editRow, pricePerKg: parseFloat(e.target.value) || 0 })
+                      setEditRow({
+                        ...editRow,
+                        pricePerKg: parseFloat(e.target.value) || 0,
+                      })
                     }
                     className={errors.pricePerKg ? inputErrCls : inputCls}
                   />
                 </Field>
-                <Field label="Express Shipping Base Price ($AUD)" error={errors.expressBasePrice}>
+                <Field
+                  label="Express Shipping Base Price ($AUD)"
+                  error={errors.expressBasePrice}
+                >
                   <input
                     type="number"
                     step="0.01"
                     min="0"
                     value={editRow.expressBasePrice}
                     onChange={(e) =>
-                      setEditRow({ ...editRow, expressBasePrice: parseFloat(e.target.value) || 0 })
+                      setEditRow({
+                        ...editRow,
+                        expressBasePrice: parseFloat(e.target.value) || 0,
+                      })
                     }
                     className={errors.expressBasePrice ? inputErrCls : inputCls}
                   />
                 </Field>
-                <Field label="Express Shipping Per kg Price ($AUD)" error={errors.expressPricePerKg}>
+                <Field
+                  label="Express Shipping Per kg Price ($AUD)"
+                  error={errors.expressPricePerKg}
+                >
                   <input
                     type="number"
                     step="0.01"
                     min="0"
                     value={editRow.expressPricePerKg}
                     onChange={(e) =>
-                      setEditRow({ ...editRow, expressPricePerKg: parseFloat(e.target.value) || 0 })
+                      setEditRow({
+                        ...editRow,
+                        expressPricePerKg: parseFloat(e.target.value) || 0,
+                      })
                     }
-                    className={errors.expressPricePerKg ? inputErrCls : inputCls}
+                    className={
+                      errors.expressPricePerKg ? inputErrCls : inputCls
+                    }
                   />
                 </Field>
               </div>
@@ -560,7 +636,11 @@ function ShippingTab() {
                 </Field>
               )}
             </div>
-            <ModalFooter onCancel={() => setOpen(false)} onSave={handleSave} saving={saving} />
+            <ModalFooter
+              onCancel={() => setOpen(false)}
+              onSave={handleSave}
+              saving={saving}
+            />
           </Modal>
         )}
       </AnimatePresence>
@@ -568,7 +648,10 @@ function ShippingTab() {
       {/* Delete confirm */}
       <AnimatePresence>
         {deleteTarget && (
-          <Modal title="Delete Shipping Zone" onClose={() => setDeleteTarget(null)}>
+          <Modal
+            title="Delete Shipping Zone"
+            onClose={() => setDeleteTarget(null)}
+          >
             <div className="p-6">
               <p className="text-sm text-gray-600 mb-6">
                 Delete{" "}
@@ -624,23 +707,35 @@ function BannersTab() {
 
   const loadBanners = useCallback(async () => {
     const token = getToken();
-    if (!token) { router.push("/"); return; }
+    if (!token) {
+      router.push("/");
+      return;
+    }
     setLoading(true);
     try {
       const res = await fetch(`${API_BASE}/carousel-pics`, {
         headers: authHeaders(token),
       });
-      if (res.status === 401) { router.push("/"); return; }
+      if (res.status === 401) {
+        router.push("/");
+        return;
+      }
       const d = await res.json();
       if (d.status && Array.isArray(d.data)) setBanners(d.data);
     } catch {
-      toast({ title: "Error", description: "Failed to load banners.", variant: "destructive" });
+      toast({
+        title: "Error",
+        description: "Failed to load banners.",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
   }, [router, toast]);
 
-  useEffect(() => { loadBanners(); }, [loadBanners]);
+  useEffect(() => {
+    loadBanners();
+  }, [loadBanners]);
 
   const openUpload = () => {
     setUploadForm({ url: "" });
@@ -651,9 +746,16 @@ function BannersTab() {
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) { setFilePreview(null); return; }
+    if (!file) {
+      setFilePreview(null);
+      return;
+    }
     if (file.size > 5 * 1024 * 1024) {
-      toast({ title: "File too large", description: "Max 5MB allowed.", variant: "destructive" });
+      toast({
+        title: "File too large",
+        description: "Max 5MB allowed.",
+        variant: "destructive",
+      });
       e.target.value = "";
       setFilePreview(null);
       return;
@@ -666,11 +768,18 @@ function BannersTab() {
   const handleUploadSave = async () => {
     const file = fileRef.current?.files?.[0];
     if (!file) {
-      toast({ title: "Image required", description: "Please select an image to upload.", variant: "destructive" });
+      toast({
+        title: "Image required",
+        description: "Please select an image to upload.",
+        variant: "destructive",
+      });
       return;
     }
     const token = getToken();
-    if (!token) { router.push("/"); return; }
+    if (!token) {
+      router.push("/");
+      return;
+    }
     setSaving(true);
     try {
       const fd = new FormData();
@@ -685,13 +794,24 @@ function BannersTab() {
         },
         body: fd,
       });
-      if (res.status === 401) { router.push("/"); return; }
+      if (res.status === 401) {
+        router.push("/");
+        return;
+      }
       if (!res.ok) throw new Error("Upload failed");
       await loadBanners();
       setUploadOpen(false);
-      toast({ title: "Uploaded", description: "Banner image uploaded successfully.", variant: "success" as any });
+      toast({
+        title: "Uploaded",
+        description: "Banner image uploaded successfully.",
+        variant: "success" as any,
+      });
     } catch {
-      toast({ title: "Error", description: "Failed to upload banner.", variant: "destructive" });
+      toast({
+        title: "Error",
+        description: "Failed to upload banner.",
+        variant: "destructive",
+      });
     } finally {
       setSaving(false);
     }
@@ -699,7 +819,10 @@ function BannersTab() {
 
   const toggleActive = async (banner: Banner) => {
     const token = getToken();
-    if (!token) { router.push("/"); return; }
+    if (!token) {
+      router.push("/");
+      return;
+    }
     setTogglingId(banner._id);
     try {
       const res = await fetch(`${API_BASE}/carousel-pics`, {
@@ -707,13 +830,22 @@ function BannersTab() {
         headers: { ...authHeaders(token), "content-type": "application/json" },
         body: JSON.stringify({ picId: banner._id, isActive: !banner.isActive }),
       });
-      if (res.status === 401) { router.push("/"); return; }
+      if (res.status === 401) {
+        router.push("/");
+        return;
+      }
       if (!res.ok) throw new Error("Toggle failed");
       setBanners((b) =>
-        b.map((x) => x._id === banner._id ? { ...x, isActive: !x.isActive } : x)
+        b.map((x) =>
+          x._id === banner._id ? { ...x, isActive: !x.isActive } : x,
+        ),
       );
     } catch {
-      toast({ title: "Error", description: "Failed to update banner status.", variant: "destructive" });
+      toast({
+        title: "Error",
+        description: "Failed to update banner status.",
+        variant: "destructive",
+      });
     } finally {
       setTogglingId(null);
     }
@@ -721,20 +853,34 @@ function BannersTab() {
 
   const handleDelete = async (banner: Banner) => {
     const token = getToken();
-    if (!token) { router.push("/"); return; }
+    if (!token) {
+      router.push("/");
+      return;
+    }
     setDeleting(true);
     try {
       const res = await fetch(`${API_BASE}/carousel-pics?picId=${banner._id}`, {
         method: "DELETE",
         headers: authHeaders(token),
       });
-      if (res.status === 401) { router.push("/"); return; }
+      if (res.status === 401) {
+        router.push("/");
+        return;
+      }
       if (!res.ok) throw new Error("Delete failed");
       setBanners((b) => b.filter((x) => x._id !== banner._id));
       setDeleteTarget(null);
-      toast({ title: "Deleted", description: "Banner removed.", variant: "destructive" });
+      toast({
+        title: "Deleted",
+        description: "Banner removed.",
+        variant: "destructive",
+      });
     } catch {
-      toast({ title: "Error", description: "Failed to delete banner.", variant: "destructive" });
+      toast({
+        title: "Error",
+        description: "Failed to delete banner.",
+        variant: "destructive",
+      });
     } finally {
       setDeleting(false);
     }
@@ -780,7 +926,10 @@ function BannersTab() {
             </thead>
             <tbody className="divide-y divide-gray-100">
               {paged.map((banner) => (
-                <tr key={banner._id} className="hover:bg-gray-50 transition-colors">
+                <tr
+                  key={banner._id}
+                  className="hover:bg-gray-50 transition-colors"
+                >
                   <td className="px-4 py-3">
                     <div className="h-14 w-24 rounded-lg bg-gray-100 flex items-center justify-center overflow-hidden border border-gray-200">
                       {banner.image ? (
@@ -848,7 +997,10 @@ function BannersTab() {
               ))}
               {banners.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="px-4 py-10 text-center text-gray-400">
+                  <td
+                    colSpan={4}
+                    className="px-4 py-10 text-center text-gray-400"
+                  >
                     No banners uploaded yet.
                   </td>
                 </tr>
@@ -870,7 +1022,10 @@ function BannersTab() {
       {/* Upload Modal */}
       <AnimatePresence>
         {uploadOpen && (
-          <Modal title="Upload Banner Image" onClose={() => setUploadOpen(false)}>
+          <Modal
+            title="Upload Banner Image"
+            onClose={() => setUploadOpen(false)}
+          >
             <div className="p-6 space-y-4">
               <Field label="Redirect URL (optional)">
                 <input
@@ -929,8 +1084,8 @@ function BannersTab() {
           <Modal title="Delete Banner" onClose={() => setDeleteTarget(null)}>
             <div className="p-6">
               <p className="text-sm text-gray-600 mb-6">
-                Are you sure you want to delete this banner image? This cannot be
-                undone.
+                Are you sure you want to delete this banner image? This cannot
+                be undone.
               </p>
               <div className="flex gap-3 justify-end">
                 <button
@@ -977,26 +1132,38 @@ function BankTab() {
 
   const loadBanks = useCallback(async () => {
     const token = getToken();
-    if (!token) { router.push("/"); return; }
+    if (!token) {
+      router.push("/");
+      return;
+    }
     setLoading(true);
     try {
       const res = await fetch(`${API_BASE}/bank-info`, {
         headers: authHeaders(token),
       });
-      if (res.status === 401) { router.push("/"); return; }
+      if (res.status === 401) {
+        router.push("/");
+        return;
+      }
       const d = await res.json();
       if (d.status) {
         const data = Array.isArray(d.data) ? d.data : d.data ? [d.data] : [];
         setBanks(data.filter(Boolean));
       }
     } catch {
-      toast({ title: "Error", description: "Failed to load bank info.", variant: "destructive" });
+      toast({
+        title: "Error",
+        description: "Failed to load bank info.",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
   }, [router, toast]);
 
-  useEffect(() => { loadBanks(); }, [loadBanks]);
+  useEffect(() => {
+    loadBanks();
+  }, [loadBanks]);
 
   const emptyForm = (): Partial<BankInfo> => ({
     _id: "",
@@ -1022,7 +1189,8 @@ function BankTab() {
     if (!editBank) return false;
     const e: Record<string, string> = {};
     if (!editBank.bankName?.trim()) e.bankName = "Bank name is required";
-    if (!editBank.accountNumber?.trim()) e.accountNumber = "Account number is required";
+    if (!editBank.accountNumber?.trim())
+      e.accountNumber = "Account number is required";
     if (!editBank.bsb?.trim()) e.bsb = "BSB is required";
     setErrors(e);
     return Object.keys(e).length === 0;
@@ -1031,7 +1199,10 @@ function BankTab() {
   const handleSave = async () => {
     if (!editBank || !validate()) return;
     const token = getToken();
-    if (!token) { router.push("/"); return; }
+    if (!token) {
+      router.push("/");
+      return;
+    }
     setSaving(true);
     try {
       const body: Record<string, unknown> = {
@@ -1049,25 +1220,43 @@ function BankTab() {
         headers: { ...authHeaders(token), "content-type": "application/json" },
         body: JSON.stringify(body),
       });
-      if (res.status === 401) { router.push("/"); return; }
+      if (res.status === 401) {
+        router.push("/");
+        return;
+      }
       if (!res.ok) throw new Error("Save failed");
       const d = await res.json();
       if (editBank._id) {
         setBanks((b) =>
           b.map((x) =>
             x._id === editBank._id
-              ? { ...x, bankName: body.bankName as string, bsb: body.bsb as string, accountNumber: body.accountNumber as string, description: body.description as string }
-              : x
-          )
+              ? {
+                  ...x,
+                  bankName: body.bankName as string,
+                  bsb: body.bsb as string,
+                  accountNumber: body.accountNumber as string,
+                  description: body.description as string,
+                }
+              : x,
+          ),
         );
       } else {
-        const newRecord: BankInfo = d.data ?? { ...body, _id: String(Date.now()) } as BankInfo;
+        const newRecord: BankInfo =
+          d.data ?? ({ ...body, _id: String(Date.now()) } as BankInfo);
         setBanks((b) => [...b, newRecord]);
       }
       setOpen(false);
-      toast({ title: "Saved", description: "Bank info saved.", variant: "success" as any });
+      toast({
+        title: "Saved",
+        description: "Bank info saved.",
+        variant: "success" as any,
+      });
     } catch {
-      toast({ title: "Error", description: "Failed to save bank info.", variant: "destructive" });
+      toast({
+        title: "Error",
+        description: "Failed to save bank info.",
+        variant: "destructive",
+      });
     } finally {
       setSaving(false);
     }
@@ -1075,20 +1264,34 @@ function BankTab() {
 
   const handleDelete = async (b: BankInfo) => {
     const token = getToken();
-    if (!token) { router.push("/"); return; }
+    if (!token) {
+      router.push("/");
+      return;
+    }
     setDeleting(true);
     try {
       const res = await fetch(`${API_BASE}/bank-info?id=${b._id}`, {
         method: "DELETE",
         headers: authHeaders(token),
       });
-      if (res.status === 401) { router.push("/"); return; }
+      if (res.status === 401) {
+        router.push("/");
+        return;
+      }
       if (!res.ok) throw new Error("Delete failed");
       setBanks((bk) => bk.filter((x) => x._id !== b._id));
       setDeleteTarget(null);
-      toast({ title: "Deleted", description: "Bank info removed.", variant: "destructive" });
+      toast({
+        title: "Deleted",
+        description: "Bank info removed.",
+        variant: "destructive",
+      });
     } catch {
-      toast({ title: "Error", description: "Failed to delete bank info.", variant: "destructive" });
+      toast({
+        title: "Error",
+        description: "Failed to delete bank info.",
+        variant: "destructive",
+      });
     } finally {
       setDeleting(false);
     }
@@ -1137,7 +1340,10 @@ function BankTab() {
             </thead>
             <tbody className="divide-y divide-gray-100">
               {paged.map((bank) => (
-                <tr key={bank._id} className="hover:bg-gray-50 transition-colors">
+                <tr
+                  key={bank._id}
+                  className="hover:bg-gray-50 transition-colors"
+                >
                   <td className="px-4 py-3 font-medium text-gray-900">
                     {bank.bankName}
                   </td>
@@ -1172,7 +1378,10 @@ function BankTab() {
               ))}
               {banks.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-4 py-10 text-center text-gray-400">
+                  <td
+                    colSpan={5}
+                    className="px-4 py-10 text-center text-gray-400"
+                  >
                     No bank accounts added yet.
                   </td>
                 </tr>
@@ -1217,7 +1426,10 @@ function BankTab() {
                     placeholder="Enter account number"
                     value={editBank.accountNumber || ""}
                     onChange={(e) =>
-                      setEditBank((b) => ({ ...b, accountNumber: e.target.value }))
+                      setEditBank((b) => ({
+                        ...b,
+                        accountNumber: e.target.value,
+                      }))
                     }
                     className={errors.accountNumber ? inputErrCls : inputCls}
                   />
@@ -1239,14 +1451,21 @@ function BankTab() {
                     placeholder="Enter description"
                     value={editBank.description || ""}
                     onChange={(e) =>
-                      setEditBank((b) => ({ ...b, description: e.target.value }))
+                      setEditBank((b) => ({
+                        ...b,
+                        description: e.target.value,
+                      }))
                     }
                     className={inputCls}
                   />
                 </Field>
               </div>
             </div>
-            <ModalFooter onCancel={() => setOpen(false)} onSave={handleSave} saving={saving} />
+            <ModalFooter
+              onCancel={() => setOpen(false)}
+              onSave={handleSave}
+              saving={saving}
+            />
           </Modal>
         )}
       </AnimatePresence>
@@ -1288,12 +1507,620 @@ function BankTab() {
   );
 }
 
+// ─── Roles Tab ────────────────────────────────────────────────────────────────
+
+interface RolePermission {
+  key: string;
+  label: string;
+  _id: string;
+  identifier: string;
+}
+
+interface RolePolicyModule {
+  module: { key: string; label: string };
+  permissions: RolePermission[];
+}
+
+interface RolePolicy {
+  module: { key: string; label: string };
+  permissions: RolePermission[];
+}
+
+interface Role {
+  _id: string;
+  name: string;
+  policies: RolePolicy[];
+  isSystemRole: boolean;
+  modules: string;
+}
+
+function RolesTab() {
+  const { toast } = useToast();
+  const router = useRouter();
+
+  const [roles, setRoles] = useState<Role[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [policyModules, setPolicyModules] = useState<RolePolicyModule[]>([]);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editRole, setEditRole] = useState<Role | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<Role | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [page, setPage] = useState(1);
+  const [perPage, setPerPage] = useState(5);
+  const totalPages = Math.max(1, Math.ceil(roles.length / perPage));
+  const paged = roles.slice((page - 1) * perPage, page * perPage);
+
+  // form
+  const [roleName, setRoleName] = useState("");
+  const [selectedModule, setSelectedModule] = useState("");
+  const [selectedPermIds, setSelectedPermIds] = useState<string[]>([]);
+  const [addedPolicies, setAddedPolicies] = useState<
+    { moduleKey: string; moduleLabel: string; permIds: string[] }[]
+  >([]);
+
+  const fetchRoles = useCallback(async () => {
+    const token = getToken();
+    if (!token) {
+      router.push("/");
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/role/list`, {
+        headers: authHeaders(token),
+      });
+      if (res.status === 401) {
+        router.push("/");
+        return;
+      }
+      const json = await res.json();
+      if (!res.ok) throw new Error(json?.message || "Failed to load roles");
+      setRoles(json.data ?? []);
+    } catch (err: unknown) {
+      toast({
+        title: "Error",
+        description:
+          err instanceof Error ? err.message : "Failed to load roles.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [router, toast]);
+
+  const fetchPolicyModules = useCallback(async () => {
+    const token = getToken();
+    if (!token) return;
+    try {
+      const res = await fetch(`${API_BASE}/config?rolePolicies=1`, {
+        headers: authHeaders(token),
+      });
+      const json = await res.json();
+      setPolicyModules(json.data?.rolePolicies ?? []);
+    } catch {
+      /* silent */
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchRoles();
+    fetchPolicyModules();
+  }, [fetchRoles, fetchPolicyModules]);
+
+  const availablePerms =
+    policyModules.find((m) => m.module.key === selectedModule)?.permissions ??
+    [];
+
+  const usedModuleKeys = addedPolicies
+    .map((p) => p.moduleKey)
+    .filter((k) => k !== selectedModule);
+  const availableModules = policyModules.filter(
+    (m) => !usedModuleKeys.includes(m.module.key),
+  );
+
+  const openAdd = () => {
+    setEditRole(null);
+    setRoleName("");
+    setAddedPolicies([]);
+    setSelectedModule("");
+    setSelectedPermIds([]);
+    setModalOpen(true);
+  };
+
+  const openEdit = (role: Role) => {
+    setEditRole(role);
+    setRoleName(role.name);
+    setAddedPolicies(
+      role.policies.map((p) => ({
+        moduleKey: p.module.key,
+        moduleLabel: p.module.label,
+        permIds: p.permissions.map((x) => x._id),
+      })),
+    );
+    setSelectedModule("");
+    setSelectedPermIds([]);
+    setModalOpen(true);
+  };
+
+  const closeModal = () => {
+    if (!saving) {
+      setModalOpen(false);
+      setEditRole(null);
+    }
+  };
+
+  const togglePerm = (id: string) =>
+    setSelectedPermIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    );
+
+  const handleAddModuleRow = () => {
+    if (!selectedModule || selectedPermIds.length === 0) {
+      toast({
+        title: "Select a module and at least one permission.",
+        variant: "destructive",
+      });
+      return;
+    }
+    const modInfo = policyModules.find((m) => m.module.key === selectedModule);
+    if (!modInfo) return;
+    setAddedPolicies((prev) => {
+      const exists = prev.find((p) => p.moduleKey === selectedModule);
+      if (exists)
+        return prev.map((p) =>
+          p.moduleKey === selectedModule
+            ? { ...p, permIds: selectedPermIds }
+            : p,
+        );
+      return [
+        ...prev,
+        {
+          moduleKey: selectedModule,
+          moduleLabel: modInfo.module.label,
+          permIds: selectedPermIds,
+        },
+      ];
+    });
+    setSelectedModule("");
+    setSelectedPermIds([]);
+  };
+
+  const removeModuleRow = (moduleKey: string) =>
+    setAddedPolicies((prev) => prev.filter((p) => p.moduleKey !== moduleKey));
+
+  const handleSave = async () => {
+    if (!roleName.trim()) {
+      toast({ title: "Role name is required.", variant: "destructive" });
+      return;
+    }
+    const token = getToken();
+    if (!token) {
+      router.push("/");
+      return;
+    }
+    const allPermIds = addedPolicies.flatMap((p) => p.permIds);
+    setSaving(true);
+    try {
+      const body: Record<string, unknown> = {
+        name: roleName.trim(),
+        policies: allPermIds,
+      };
+      if (editRole) body.roleId = editRole._id;
+      const res = await fetch(`${API_BASE}/role`, {
+        method: editRole ? "PATCH" : "POST",
+        headers: { ...authHeaders(token), "content-type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (res.status === 401) {
+        router.push("/");
+        return;
+      }
+      const json = await res.json();
+      if (!res.ok || json?.status === false)
+        throw new Error(json?.message || "Save failed");
+      toast({
+        title: `Role ${editRole ? "updated" : "created"} successfully.`,
+      });
+      setModalOpen(false);
+      fetchRoles();
+    } catch (err: unknown) {
+      toast({
+        title: "Error",
+        description: err instanceof Error ? err.message : "Save failed.",
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    const token = getToken();
+    if (!token) {
+      router.push("/");
+      return;
+    }
+    setDeleting(true);
+    try {
+      const res = await fetch(`${API_BASE}/role?roleId=${deleteTarget._id}`, {
+        method: "DELETE",
+        headers: authHeaders(token),
+      });
+      if (res.status === 401) {
+        router.push("/");
+        return;
+      }
+      const json = await res.json();
+      if (!res.ok || json?.status === false)
+        throw new Error(json?.message || "Delete failed");
+      toast({ title: "Role deleted successfully." });
+      setDeleteTarget(null);
+      fetchRoles();
+    } catch (err: unknown) {
+      toast({
+        title: "Error",
+        description: err instanceof Error ? err.message : "Delete failed.",
+        variant: "destructive",
+      });
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  return (
+    <>
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+          <span className="text-sm font-semibold text-[#1a2b6b]">Roles</span>
+          <button
+            onClick={openAdd}
+            className="h-9 px-4 bg-[#1a2b6b] hover:bg-[#142258] text-white text-sm font-semibold rounded-lg transition-colors flex items-center gap-1.5"
+          >
+            <Plus className="h-4 w-4" />
+            Add Role
+          </button>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-auto min-w-full text-sm table-auto">
+            <thead>
+              <tr className="border-b border-gray-200 bg-gray-50">
+                <th className="text-left px-4 py-3 font-semibold text-[#1a2b6b] whitespace-nowrap w-16">
+                  S.No
+                </th>
+                <th className="text-left px-4 py-3 font-semibold text-gray-700 whitespace-nowrap w-48">
+                  Role Name
+                </th>
+                <th className="text-left px-4 py-3 font-semibold text-gray-700 w-[24rem]">
+                  Modules
+                </th>
+                <th className="px-4 py-3 font-semibold text-gray-700 text-right whitespace-nowrap w-24">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {loading ? (
+                <tr>
+                  <td colSpan={4} className="px-4 py-10 text-center">
+                    <Loader2 className="h-6 w-6 animate-spin text-[#1a2b6b] mx-auto" />
+                  </td>
+                </tr>
+              ) : roles.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={4}
+                    className="px-4 py-12 text-center text-gray-400"
+                  >
+                    No roles found.
+                  </td>
+                </tr>
+              ) : (
+                paged.map((role, idx) => (
+                  <tr
+                    key={role._id}
+                    className="hover:bg-gray-50 transition-colors"
+                  >
+                    <td className="px-4 py-3 text-gray-500 whitespace-nowrap w-16">
+                      {(page - 1) * perPage + idx + 1}
+                    </td>
+                    <td className="px-4 py-3 font-medium text-gray-900 whitespace-nowrap w-48">
+                      {role.name}
+                    </td>
+                    <td className="px-4 py-3 text-gray-600 text-xs w-[24rem]">
+                      {role.modules ? (
+                        <span
+                          title={role.modules}
+                          className="block truncate max-w-[24rem] cursor-default"
+                        >
+                          {role.modules}
+                        </span>
+                      ) : (
+                        <span className="text-gray-300">—</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 w-24">
+                      <div className="flex items-center justify-end gap-1">
+                        <button
+                          onClick={() => openEdit(role)}
+                          className="p-1.5 rounded-lg text-gray-400 hover:text-[#1a2b6b] hover:bg-blue-50 transition-colors"
+                          title="Edit"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => setDeleteTarget(role)}
+                          className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                          title="Delete"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <TablePagination
+        page={page}
+        totalPages={totalPages}
+        perPage={perPage}
+        perPageOptions={[5, 10, 25]}
+        onPage={setPage}
+        onPerPage={setPerPage}
+      />
+
+      <AnimatePresence>
+        {modalOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
+            onClick={(e) => {
+              if (e.target === e.currentTarget && !saving) closeModal();
+            }}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto"
+            >
+              <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 sticky top-0 bg-white z-10">
+                <h3 className="text-base font-bold text-[#1a2b6b]">
+                  {editRole ? "Edit Role" : "Add Role"}
+                </h3>
+                <button
+                  onClick={closeModal}
+                  disabled={saving}
+                  className="text-gray-400 hover:text-gray-600 p-1 rounded transition-colors"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              <div className="p-6 space-y-5">
+                {/* Role Name */}
+                <div>
+                  <label className="block text-sm font-semibold text-[#1a2b6b] mb-1.5">
+                    Name of the Role <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    value={roleName}
+                    onChange={(e) => setRoleName(e.target.value)}
+                    placeholder="Enter role name"
+                    className={inputCls}
+                  />
+                </div>
+                {/* Module + Permissions row */}
+                <div className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-3 items-end">
+                  <div>
+                    <label className="block text-sm font-semibold text-[#1a2b6b] mb-1.5">
+                      Module
+                    </label>
+                    <select
+                      value={selectedModule}
+                      onChange={(e) => {
+                        setSelectedModule(e.target.value);
+                        setSelectedPermIds([]);
+                      }}
+                      className={inputCls}
+                    >
+                      <option value="">Select a Module</option>
+                      {availableModules.map((m) => (
+                        <option key={m.module.key} value={m.module.key}>
+                          {m.module.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-[#1a2b6b] mb-1.5">
+                      Permissions
+                    </label>
+                    <div
+                      className={`min-h-[40px] px-3 py-2 border rounded-lg text-sm flex flex-wrap gap-3 items-center ${!selectedModule ? "bg-gray-50 border-gray-100 cursor-not-allowed" : "bg-white border-gray-200"}`}
+                    >
+                      {!selectedModule ? (
+                        <span className="text-gray-400 text-xs">
+                          Select a module first
+                        </span>
+                      ) : (
+                        availablePerms.map((perm) => (
+                          <label
+                            key={perm._id}
+                            className="flex items-center gap-1.5 cursor-pointer select-none"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={selectedPermIds.includes(perm._id)}
+                              onChange={() => togglePerm(perm._id)}
+                              className="accent-[#1a2b6b] w-3.5 h-3.5"
+                            />
+                            <span className="text-gray-700 text-xs font-medium">
+                              {perm.label}
+                            </span>
+                          </label>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleAddModuleRow}
+                    disabled={!selectedModule || selectedPermIds.length === 0}
+                    className="h-10 w-10 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors disabled:opacity-40 flex items-center justify-center shrink-0"
+                  >
+                    <Plus className="h-5 w-5" />
+                  </button>
+                </div>
+                {/* Module Permissions table */}
+                <div>
+                  <p className="text-sm font-bold text-[#1a2b6b] mb-2">
+                    Module Permissions
+                  </p>
+                  <div className="border border-gray-200 rounded-lg overflow-hidden">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="bg-gray-50 border-b border-gray-200">
+                          <th className="text-left px-4 py-2.5 font-semibold text-gray-700 w-14">
+                            S.No
+                          </th>
+                          <th className="text-left px-4 py-2.5 font-semibold text-gray-700">
+                            Module
+                          </th>
+                          <th className="text-left px-4 py-2.5 font-semibold text-gray-700">
+                            Permissions
+                          </th>
+                          <th className="px-4 py-2.5 font-semibold text-gray-700 text-right">
+                            Action
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                        {addedPolicies.length === 0 ? (
+                          <tr>
+                            <td
+                              colSpan={4}
+                              className="px-4 py-6 text-center text-xs text-gray-400"
+                            >
+                              No module permissions added yet.
+                            </td>
+                          </tr>
+                        ) : (
+                          addedPolicies.map((p, i) => {
+                            const modPerms =
+                              policyModules
+                                .find((m) => m.module.key === p.moduleKey)
+                                ?.permissions.filter((x) =>
+                                  p.permIds.includes(x._id),
+                                ) ?? [];
+                            return (
+                              <tr
+                                key={p.moduleKey}
+                                className="hover:bg-gray-50"
+                              >
+                                <td className="px-4 py-2.5 text-gray-500">
+                                  {i + 1}
+                                </td>
+                                <td className="px-4 py-2.5 font-medium text-gray-900">
+                                  {p.moduleLabel}
+                                </td>
+                                <td className="px-4 py-2.5 text-gray-600">
+                                  {modPerms.map((x) => x.label).join(", ")}
+                                </td>
+                                <td className="px-4 py-2.5 text-right">
+                                  <button
+                                    onClick={() => removeModuleRow(p.moduleKey)}
+                                    className="w-7 h-7 rounded-full bg-red-500 hover:bg-red-600 text-white flex items-center justify-center ml-auto transition-colors"
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+              <ModalFooter
+                onCancel={closeModal}
+                onSave={handleSave}
+                saving={saving}
+              />
+            </motion.div>
+          </motion.div>
+        )}
+
+        {deleteTarget && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
+            onClick={(e) => {
+              if (e.target === e.currentTarget && !deleting)
+                setDeleteTarget(null);
+            }}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white rounded-xl shadow-2xl w-full max-w-sm p-6 text-center"
+            >
+              <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4">
+                <Trash2 className="h-6 w-6 text-red-600" />
+              </div>
+              <h3 className="text-base font-bold text-gray-900 mb-2">
+                Delete Role
+              </h3>
+              <p className="text-sm text-gray-500 mb-6">
+                Are you sure you want to delete{" "}
+                <span className="font-semibold text-gray-800">
+                  &quot;{deleteTarget.name}&quot;
+                </span>
+                ? This cannot be undone.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setDeleteTarget(null)}
+                  disabled={deleting}
+                  className="flex-1 h-10 border border-gray-200 rounded-lg text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleDelete}
+                  disabled={deleting}
+                  className="flex-1 h-10 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-semibold transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {deleting && <Loader2 className="h-4 w-4 animate-spin" />}
+                  Delete
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
+  );
+}
+
 // ─── Main Settings Page ────────────────────────────────────────────────────────
 
 const SETTINGS_TABS = [
   { id: "shipping", label: "Shipping Prices" },
   { id: "banners", label: "Banner Images" },
   { id: "bank", label: "Bank Info" },
+  { id: "roles", label: "Roles" },
 ];
 
 export default function SettingsPage() {
@@ -1329,6 +2156,7 @@ export default function SettingsPage() {
         {activeTab === "shipping" && <ShippingTab />}
         {activeTab === "banners" && <BannersTab />}
         {activeTab === "bank" && <BankTab />}
+        {activeTab === "roles" && <RolesTab />}
       </div>
     </motion.div>
   );
