@@ -416,7 +416,7 @@ export default function BlogsPage() {
         title: `Category ${editCat ? "updated" : "added"} successfully`,
       });
       setShowCatModal(false);
-      fetchCategories();
+      fetchCategories(catPage, catPerPage);
     } catch (err: unknown) {
       toast({
         title: "Failed",
@@ -458,7 +458,7 @@ export default function BlogsPage() {
         );
       toast({ title: "Category deleted successfully" });
       setDeleteCat(null);
-      fetchCategories();
+      fetchCategories(catPage, catPerPage);
     } catch (err: unknown) {
       toast({
         title: "Delete failed",
