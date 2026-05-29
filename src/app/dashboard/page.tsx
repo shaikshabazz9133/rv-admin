@@ -214,38 +214,63 @@ export default function DashboardPage() {
     }
   };
 
-  const handleDownload = async () => {
-    if (!startDate || !endDate) {
+  const handleOrderSummaryDownload = async () => {
+    const hasStartDate = Boolean(startDate);
+    const hasEndDate = Boolean(endDate);
+
+    if (hasStartDate !== hasEndDate) {
       toast({
-        title: "Date Range Required",
-        description: "Please select both start and end dates.",
+        title: "Incomplete Date Range",
+        description: "Select both dates or clear both to download all data.",
         variant: "destructive",
       });
       return;
     }
-    const start = new Date(startDate).getTime();
-    const end = new Date(endDate).getTime();
-    if (start > end) {
+
+    const toUtcStartOfDay = (value: string) => {
+      const [y, m, d] = value.split("-").map(Number);
+      return Date.UTC(y, m - 1, d);
+    };
+
+    const DAY_MS = 24 * 60 * 60 * 1000;
+    const start = hasStartDate ? toUtcStartOfDay(startDate) : 0;
+    const end = hasEndDate ? toUtcStartOfDay(endDate) + DAY_MS : 0;
+
+    if (hasStartDate && hasEndDate && start >= end) {
       toast({
         title: "Invalid Date Range",
-        description: "Start date must be before end date.",
+        description: "End date must be same as or after start date.",
         variant: "destructive",
       });
       return;
     }
     const token = sessionStorage.getItem("auth_token");
+    if (!token) {
+      sessionStorage.clear();
+      router.push("/");
+      toast({
+        title: "Session Expired",
+        description: "Please sign in again.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const params = new URLSearchParams({ type: "excel" });
+    if (hasStartDate && hasEndDate) {
+      params.set("start_date", String(start));
+      params.set("end_date", String(end));
+    }
+
     setDownloading(true);
     try {
-      const res = await fetch(
-        `${API_BASE}/order/download-summary?type=excel&start_date=${start}&end_date=${end}`,
-        {
-          headers: {
-            authorization: `Bearer ${token}`,
-            "x-app-client": "ADMIN_PANEL",
-            accept: "*/*",
-          },
+      const res = await fetch(`${API_BASE}/order/download-summary?${params}`, {
+        headers: {
+          authorization: `Bearer ${token}`,
+          "x-app-client": "ADMIN_PANEL",
+          accept: "*/*",
         },
-      );
+      });
       if (res.status === 401) {
         sessionStorage.clear();
         router.push("/");
@@ -261,7 +286,10 @@ export default function DashboardPage() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `order-summary-${startDate}_${endDate}.xlsx`;
+      a.download =
+        hasStartDate && hasEndDate
+          ? `order-summary-${startDate}_${endDate}.xlsx`
+          : "order-summary-all.xlsx";
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -421,7 +449,7 @@ export default function DashboardPage() {
                 endDate={endDate}
                 onStartDate={setStartDate}
                 onEndDate={setEndDate}
-                onDownload={handleDownload}
+                onDownload={handleOrderSummaryDownload}
                 downloading={downloading}
               />
             </div>
@@ -554,7 +582,7 @@ export default function DashboardPage() {
                 endDate={endDate}
                 onStartDate={setStartDate}
                 onEndDate={setEndDate}
-                onDownload={handleDownload}
+                onDownload={handleOrderSummaryDownload}
                 downloading={downloading}
               />
             </div>
