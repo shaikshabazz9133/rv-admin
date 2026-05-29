@@ -39,6 +39,7 @@ interface Blog {
   description: string;
   category: { _id: string; name: string };
   image?: string;
+  imageAltText?: string;
   insertedAt?: number;
 }
 
@@ -199,9 +200,11 @@ export default function BlogsPage() {
   const [deleteBlog, setDeleteBlog] = useState<Blog | null>(null);
   const [deleteBlogLoading, setDeleteBlogLoading] = useState(false);
   const [editBlog, setEditBlog] = useState<Blog | null>(null);
+  const [blogDetailLoading, setBlogDetailLoading] = useState(false);
   const [blogFormLoading, setBlogFormLoading] = useState(false);
   const [blogForm, setBlogForm] = useState({
     title: "",
+    imageAltText: "",
     categoryId: "",
     image: null as File | null,
     imagePreview: "",
@@ -307,9 +310,9 @@ export default function BlogsPage() {
         });
         if (catFilter) params.set("categoryId", catFilter);
         if (monthFilter) {
-          const [year, month] = monthFilter.split("-");
-          params.set("month", month);
-          params.set("year", year);
+          // API expects: month=May 2026
+          const opt = monthOptions.find((m) => m.value === monthFilter);
+          if (opt) params.set("month", opt.label);
         }
         const res = await fetch(`${API_BASE}/blog/list?${params}`, {
           headers: authHeaders(token),
@@ -473,19 +476,50 @@ export default function BlogsPage() {
   // ── Blog CRUD ──
   const openAddBlog = () => {
     setEditBlog(null);
-    setBlogForm({ title: "", categoryId: "", image: null, imagePreview: "" });
+    setBlogForm({
+      title: "",
+      imageAltText: "",
+      categoryId: "",
+      image: null,
+      imagePreview: "",
+    });
     setView("add");
   };
 
-  const openEditBlog = (b: Blog) => {
+  const openEditBlog = async (b: Blog) => {
+    const token = getToken();
+    if (!token) return;
     setEditBlog(b);
-    setBlogForm({
-      title: b.title,
-      categoryId: b.category?._id ?? "",
-      image: null,
-      imagePreview: b.image ?? "",
-    });
+    setBlogDetailLoading(true);
     setView("edit");
+    try {
+      const res = await fetch(
+        `${API_BASE}/blog/details?blogId=${b._id}`,
+        { headers: authHeaders(token) },
+      );
+      const json = await res.json();
+      if (!res.ok || json?.status === false)
+        throw new Error((json?.message as string) || `Server error (${res.status})`);
+      const detail: Blog = json.data;
+      setEditBlog(detail);
+      setBlogForm({
+        title: detail.title ?? "",
+        imageAltText: detail.imageAltText ?? "",
+        categoryId: detail.category?._id ?? "",
+        image: null,
+        imagePreview: detail.image ?? "",
+      });
+    } catch (err: unknown) {
+      toast({
+        title: "Failed to load blog details",
+        description: err instanceof Error ? err.message : "Please try again.",
+        variant: "destructive",
+      });
+      setView("list");
+      setEditBlog(null);
+    } finally {
+      setBlogDetailLoading(false);
+    }
   };
 
   const handleImageChange = (file: File) => {
@@ -501,6 +535,10 @@ export default function BlogsPage() {
       toast({ title: "Title is required", variant: "destructive" });
       return;
     }
+    if (!blogForm.imageAltText.trim()) {
+      toast({ title: "Image alt text is required", variant: "destructive" });
+      return;
+    }
     if (!blogForm.categoryId) {
       toast({ title: "Category is required", variant: "destructive" });
       return;
@@ -514,6 +552,7 @@ export default function BlogsPage() {
       fd.append("title", blogForm.title);
       fd.append("description", desc);
       fd.append("categoryId", blogForm.categoryId);
+      fd.append("imageAltText", blogForm.imageAltText);
       if (editBlog) fd.append("blogId", editBlog._id);
       if (blogForm.image) fd.append("image", blogForm.image);
       const res = await fetch(`${API_BASE}/blog`, {
@@ -595,13 +634,24 @@ export default function BlogsPage() {
   };
 
   // ── Month options ──
-  const monthOptions = MONTHS.map((m, i) => ({
-    label: `${m} ${CURRENT_YEAR}`,
-    value: `${CURRENT_YEAR}-${String(i + 1).padStart(2, "0")}`,
-  }));
+  const currentMonthIndex = new Date().getMonth();
+  const monthOptions = [
+    {
+      label: `${MONTHS[currentMonthIndex]} ${CURRENT_YEAR}`,
+      value: `${CURRENT_YEAR}-${String(currentMonthIndex + 1).padStart(2, "0")}`,
+    },
+  ];
 
   // ─── Blog Add / Edit Form ────────────────────────────────────────────────────
   if (activeTab === "blogs" && (view === "add" || view === "edit")) {
+    // Show full-page loader while fetching edit details
+    if (blogDetailLoading) {
+      return (
+        <div className="min-h-full bg-[#f0f2f8] flex items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-[#1a2b6b]" />
+        </div>
+      );
+    }
     return (
       <motion.div
         initial={{ opacity: 0, y: 16 }}
@@ -710,6 +760,21 @@ export default function BlogsPage() {
                     setBlogForm((f) => ({ ...f, title: e.target.value }))
                   }
                   placeholder="Enter blog title"
+                  className="w-full h-10 px-3 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 outline-none focus:ring-2 focus:ring-[#1a2b6b]/20 focus:border-[#1a2b6b] transition-colors"
+                />
+              </div>
+
+              {/* Image Alt Text */}
+              <div className="space-y-1.5">
+                <label className="text-sm font-semibold text-gray-700">
+                  Image Alt Text <span className="text-red-500">*</span>
+                </label>
+                <input
+                  value={blogForm.imageAltText}
+                  onChange={(e) =>
+                    setBlogForm((f) => ({ ...f, imageAltText: e.target.value }))
+                  }
+                  placeholder="Enter image alt text"
                   className="w-full h-10 px-3 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 outline-none focus:ring-2 focus:ring-[#1a2b6b]/20 focus:border-[#1a2b6b] transition-colors"
                 />
               </div>
@@ -1031,6 +1096,21 @@ export default function BlogsPage() {
               </select>
               <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
             </div>
+
+            {/* Clear filters */}
+            {(blogCatFilter || blogMonthFilter) && (
+              <button
+                onClick={() => {
+                  setBlogCatFilter("");
+                  setBlogMonthFilter("");
+                  setBlogPage(1);
+                }}
+                className="h-9 px-3 flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 text-red-600 text-sm font-medium hover:bg-red-100 hover:border-red-300 transition-colors"
+              >
+                <X className="h-3.5 w-3.5" />
+                Clear Filters
+              </button>
+            )}
 
             <div className="flex-1" />
 

@@ -81,7 +81,6 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
       <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
         <Header
           onMenuToggle={() => setMobileOpen(!mobileOpen)}
-          sidebarCollapsed={collapsed}
         />
         <main className="flex-1 overflow-y-auto">
           <AnimatePresence mode="wait">

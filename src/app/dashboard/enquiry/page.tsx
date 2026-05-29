@@ -25,13 +25,15 @@ interface ContactForm {
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 
 function formatDate(ts: number) {
-  return new Date(ts).toLocaleString("en-AU", {
+  const formatted = new Date(ts).toLocaleString("en-AU", {
     day: "2-digit",
     month: "short",
     year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
   });
+
+  return formatted.replace(/\b(am|pm)\b/gi, (match) => match.toUpperCase());
 }
 
 // ─── Per-page options ──────────────────────────────────────────────────────────

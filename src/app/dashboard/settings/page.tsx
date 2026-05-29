@@ -696,7 +696,7 @@ function BannersTab() {
   const [deleting, setDeleting] = useState(false);
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [uploadOpen, setUploadOpen] = useState(false);
-  const [uploadForm, setUploadForm] = useState({ url: "" });
+  const [uploadForm, setUploadForm] = useState({ url: "", imageAltText: "" });
   const [filePreview, setFilePreview] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Banner | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -738,7 +738,7 @@ function BannersTab() {
   }, [loadBanners]);
 
   const openUpload = () => {
-    setUploadForm({ url: "" });
+    setUploadForm({ url: "", imageAltText: "" });
     setFilePreview(null);
     if (fileRef.current) fileRef.current.value = "";
     setUploadOpen(true);
@@ -785,6 +785,7 @@ function BannersTab() {
       const fd = new FormData();
       fd.append("images", file);
       fd.append("url", uploadForm.url);
+      fd.append("imageAltText", uploadForm.imageAltText);
       const res = await fetch(`${API_BASE}/carousel-pics`, {
         method: "POST",
         headers: {
@@ -946,9 +947,14 @@ function BannersTab() {
                   </td>
                   <td className="px-4 py-3 text-xs max-w-xs">
                     {banner.url ? (
-                      <span className="text-[#1a2b6b] break-all line-clamp-2">
+                      <a
+                        href={banner.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[#1a2b6b] underline underline-offset-2 hover:text-[#142258] break-all line-clamp-2 transition-colors"
+                      >
                         {banner.url}
-                      </span>
+                      </a>
                     ) : (
                       <span className="text-gray-400 italic">No URL</span>
                     )}
@@ -1032,7 +1038,20 @@ function BannersTab() {
                   type="url"
                   placeholder="https://..."
                   value={uploadForm.url}
-                  onChange={(e) => setUploadForm({ url: e.target.value })}
+                  onChange={(e) =>
+                    setUploadForm((f) => ({ ...f, url: e.target.value }))
+                  }
+                  className={inputCls}
+                />
+              </Field>
+              <Field label="Image Alt Text">
+                <input
+                  type="text"
+                  placeholder="Describe the banner image…"
+                  value={uploadForm.imageAltText}
+                  onChange={(e) =>
+                    setUploadForm((f) => ({ ...f, imageAltText: e.target.value }))
+                  }
                   className={inputCls}
                 />
               </Field>
@@ -1188,9 +1207,18 @@ function BankTab() {
   const validate = (): boolean => {
     if (!editBank) return false;
     const e: Record<string, string> = {};
-    if (!editBank.bankName?.trim()) e.bankName = "Bank name is required";
-    if (!editBank.accountNumber?.trim())
+    if (!editBank.bankName?.trim()) {
+      e.bankName = "Bank name is required";
+    } else if (!/^[A-Za-z\s]+$/.test(editBank.bankName.trim())) {
+      e.bankName = "Bank name must contain letters only";
+    }
+    if (!editBank.accountNumber?.trim()) {
       e.accountNumber = "Account number is required";
+    } else if (!/^\d+$/.test(editBank.accountNumber.trim())) {
+      e.accountNumber = "Account number must contain digits only";
+    } else if (editBank.accountNumber.trim().length < 6) {
+      e.accountNumber = "Account number must be at least 6 digits";
+    }
     if (!editBank.bsb?.trim()) e.bsb = "BSB is required";
     setErrors(e);
     return Object.keys(e).length === 0;
@@ -1414,23 +1442,27 @@ function BankTab() {
                     type="text"
                     placeholder="Enter bank name"
                     value={editBank.bankName || ""}
-                    onChange={(e) =>
-                      setEditBank((b) => ({ ...b, bankName: e.target.value }))
-                    }
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/[^A-Za-z\s]/g, "");
+                      setEditBank((b) => ({ ...b, bankName: val }));
+                      if (errors.bankName)
+                        setErrors((err) => ({ ...err, bankName: "" }));
+                    }}
                     className={errors.bankName ? inputErrCls : inputCls}
                   />
                 </Field>
                 <Field label="Account Number *" error={errors.accountNumber}>
                   <input
                     type="text"
-                    placeholder="Enter account number"
+                    inputMode="numeric"
+                    placeholder="Min 6 digits"
                     value={editBank.accountNumber || ""}
-                    onChange={(e) =>
-                      setEditBank((b) => ({
-                        ...b,
-                        accountNumber: e.target.value,
-                      }))
-                    }
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/\D/g, "");
+                      setEditBank((b) => ({ ...b, accountNumber: val }));
+                      if (errors.accountNumber)
+                        setErrors((err) => ({ ...err, accountNumber: "" }));
+                    }}
                     className={errors.accountNumber ? inputErrCls : inputCls}
                   />
                 </Field>
@@ -1699,7 +1731,25 @@ function RolesTab() {
       router.push("/");
       return;
     }
-    const allPermIds = addedPolicies.flatMap((p) => p.permIds);
+    // Auto-commit any pending module selection the user forgot to click + on
+    let finalPolicies = [...addedPolicies];
+    if (selectedModule && selectedPermIds.length > 0) {
+      const modInfo = policyModules.find((m) => m.module.key === selectedModule);
+      if (modInfo) {
+        const exists = finalPolicies.find((p) => p.moduleKey === selectedModule);
+        if (exists) {
+          finalPolicies = finalPolicies.map((p) =>
+            p.moduleKey === selectedModule ? { ...p, permIds: selectedPermIds } : p,
+          );
+        } else {
+          finalPolicies = [
+            ...finalPolicies,
+            { moduleKey: selectedModule, moduleLabel: modInfo.module.label, permIds: selectedPermIds },
+          ];
+        }
+      }
+    }
+    const allPermIds = finalPolicies.flatMap((p) => p.permIds);
     setSaving(true);
     try {
       const body: Record<string, unknown> = {
@@ -1978,8 +2028,8 @@ function RolesTab() {
                     <Plus className="h-5 w-5" />
                   </button>
                 </div>
-                {/* Module Permissions table */}
-                <div>
+                {/* Module Permissions table — edit mode only */}
+                {editRole && <div>
                   <p className="text-sm font-bold text-[#1a2b6b] mb-2">
                     Module Permissions
                   </p>
@@ -2048,7 +2098,7 @@ function RolesTab() {
                       </tbody>
                     </table>
                   </div>
-                </div>
+                </div>}
               </div>
               <ModalFooter
                 onCancel={closeModal}

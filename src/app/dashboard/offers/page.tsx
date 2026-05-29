@@ -12,6 +12,13 @@ import {
   Loader2,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 
@@ -19,10 +26,6 @@ const API_BASE = "https://dev-backend.rvadventureaustralia.com.au/api";
 
 const OFFER_TYPES = [
   "Products Discount by Percentage for Limited Duration",
-  "Products Discount by Fixed Amount for Limited Duration",
-  "Category Discount by Percentage",
-  "Sitewide Discount by Percentage",
-  "Free Shipping Offer",
 ];
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -230,7 +233,6 @@ export default function OffersPage() {
   const [form, setForm] = useState<OfferForm>(emptyForm());
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
-  const [typeOpen, setTypeOpen] = useState(false);
 
   // Products in form
   const [products, setProducts] = useState<ProductOption[]>([]);
@@ -367,7 +369,6 @@ export default function OffersPage() {
     setProductSearch("");
     setDebouncedProductSearch("");
     setProductPage(1);
-    setTypeOpen(false);
     setView("form");
   };
 
@@ -386,7 +387,6 @@ export default function OffersPage() {
     setProductSearch("");
     setDebouncedProductSearch("");
     setProductPage(1);
-    setTypeOpen(false);
     setView("form");
   };
 
@@ -757,49 +757,28 @@ export default function OffersPage() {
             <label className="block text-sm font-semibold text-gray-700 mb-1.5">
               Type of Offer <span className="text-red-500">*</span>
             </label>
-            <div className="relative">
-              {/* invisible backdrop to close dropdown on outside click */}
-              {typeOpen && (
-                <div
-                  className="fixed inset-0 z-10"
-                  onClick={() => setTypeOpen(false)}
-                />
-              )}
-              <button
-                type="button"
-                onClick={() => setTypeOpen((o) => !o)}
-                className={`relative z-20 w-full h-10 px-3 border rounded-lg text-sm text-gray-900 text-left bg-white flex items-center justify-between gap-2 outline-none focus:ring-2 focus:ring-[#1a2b6b]/20 focus:border-[#1a2b6b] transition-colors ${errors.type ? "border-red-400" : "border-gray-200"}`}
+            <Select
+              value={form.type}
+              onValueChange={(val) => {
+                setForm((f) => ({ ...f, type: val }));
+                clearError("type");
+              }}
+            >
+              <SelectTrigger
+                className={`h-10 text-sm ${
+                  errors.type ? "border-red-400" : "border-gray-200"
+                }`}
               >
-                <span className="truncate text-gray-800">{form.type}</span>
-                <ChevronRight
-                  className={`h-4 w-4 text-gray-400 flex-shrink-0 transition-transform ${
-                    typeOpen ? "-rotate-90" : "rotate-90"
-                  }`}
-                />
-              </button>
-              {typeOpen && (
-                <div className="absolute z-30 left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden">
-                  {OFFER_TYPES.map((t) => (
-                    <button
-                      key={t}
-                      type="button"
-                      onClick={() => {
-                        setForm((f) => ({ ...f, type: t }));
-                        clearError("type");
-                        setTypeOpen(false);
-                      }}
-                      className={`w-full text-left px-3 py-2.5 text-sm leading-snug transition-colors ${
-                        form.type === t
-                          ? "bg-[#1a2b6b] !text-white font-semibold"
-                          : "!text-gray-800 hover:bg-blue-50"
-                      }`}
-                    >
-                      {t}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+                <SelectValue placeholder="Select type..." />
+              </SelectTrigger>
+              <SelectContent>
+                {OFFER_TYPES.map((t) => (
+                  <SelectItem key={t} value={t}>
+                    {t}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             {errors.type && (
               <p className="text-red-500 text-xs mt-1">{errors.type}</p>
             )}
@@ -909,10 +888,7 @@ export default function OffersPage() {
               No products found.
             </p>
           ) : (
-            <div
-              className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3"
-              onClick={() => setTypeOpen(false)}
-            >
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
               {products.map((p) => {
                 const selected = form.products.includes(p._id);
                 return (

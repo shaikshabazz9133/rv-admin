@@ -121,6 +121,18 @@ function ToolbarButton({
   );
 }
 
+// --- Color Palette ---
+
+const COLOR_PALETTE = [
+  ["#000000","#434343","#666666","#999999","#b7b7b7","#cccccc","#d9d9d9","#ffffff"],
+  ["#ff0000","#ff4500","#ff9900","#ffff00","#00ff00","#00ffff","#4a86e8","#9900ff"],
+  ["#f4cccc","#fce5cd","#fff2cc","#d9ead3","#d0e0e3","#c9daf8","#cfe2f3","#d9d2e9"],
+  ["#ea9999","#f9cb9c","#ffe599","#b6d7a8","#a2c4c9","#a4c2f4","#9fc5e8","#b4a7d6"],
+  ["#e06666","#f6b26b","#ffd966","#93c47d","#76a5af","#6d9eeb","#6fa8dc","#8e7cc3"],
+  ["#cc0000","#e69138","#f1c232","#6aa84f","#45818e","#3c78d8","#3d85c8","#674ea7"],
+  ["#990000","#b45f06","#bf9000","#38761d","#134f5c","#1155cc","#0b5394","#351c75"],
+];
+
 // --- Rich Text Editor ---
 
 function RichTextEditor({
@@ -131,6 +143,12 @@ function RichTextEditor({
   onChange: (v: string) => void;
 }) {
   const editorRef = useRef<HTMLDivElement>(null);
+  const imgInputRef = useRef<HTMLInputElement>(null);
+  const colorBtnRef = useRef<HTMLDivElement>(null);
+  const savedRangeRef = useRef<Range | null>(null);
+  const [activeColor, setActiveColor] = useState("#000000");
+  const [showColorPicker, setShowColorPicker] = useState(false);
+
   const exec = useCallback(
     (command: string, arg?: string) => {
       document.execCommand(command, false, arg);
@@ -138,6 +156,44 @@ function RichTextEditor({
     },
     [onChange],
   );
+
+  // Save cursor/selection before leaving the editor
+  const saveSelection = () => {
+    const sel = window.getSelection();
+    if (sel && sel.rangeCount > 0) {
+      savedRangeRef.current = sel.getRangeAt(0).cloneRange();
+    }
+  };
+
+  // Restore saved selection
+  const restoreSelection = () => {
+    const sel = window.getSelection();
+    if (sel && savedRangeRef.current) {
+      sel.removeAllRanges();
+      sel.addRange(savedRangeRef.current);
+    }
+  };
+
+  // Apply foreColor with saved selection
+  const applyColor = (color: string) => {
+    setActiveColor(color);
+    setShowColorPicker(false);
+    restoreSelection();
+    editorRef.current?.focus();
+    document.execCommand("foreColor", false, color);
+    if (editorRef.current) onChange(editorRef.current.innerHTML);
+  };
+
+  // Close color picker on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (colorBtnRef.current && !colorBtnRef.current.contains(e.target as Node)) {
+        setShowColorPicker(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
 
   useEffect(() => {
     if (editorRef.current && editorRef.current.innerHTML !== value) {
@@ -197,6 +253,47 @@ function RichTextEditor({
           <AlignJustify className="h-3.5 w-3.5" />
         </ToolbarButton>
         <div className="w-px h-6 bg-gray-200 mx-1" />
+
+        {/* Text Color Picker */}
+        <div ref={colorBtnRef} className="relative">
+          <button
+            type="button"
+            title="Text Color"
+            onMouseDown={(e) => {
+              e.preventDefault();
+              saveSelection();
+              setShowColorPicker((v) => !v);
+            }}
+            className="flex h-8 w-8 flex-col items-center justify-center rounded-md text-gray-600 hover:bg-gray-100 transition-colors gap-0.5"
+          >
+            <span className="text-xs font-bold leading-none" style={{ color: activeColor }}>A</span>
+            <span className="w-4 h-1 rounded-sm" style={{ backgroundColor: activeColor }} />
+          </button>
+          {showColorPicker && (
+            <div className="absolute top-9 left-0 z-50 bg-white border border-gray-200 rounded-xl shadow-lg p-2">
+              <p className="text-xs text-gray-400 mb-1.5 font-medium px-0.5">Text Color</p>
+              {COLOR_PALETTE.map((row, ri) => (
+                <div key={ri} className="flex gap-1 mb-1">
+                  {row.map((color) => (
+                    <button
+                      key={color}
+                      type="button"
+                      title={color}
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        applyColor(color);
+                      }}
+                      className="w-5 h-5 rounded-sm border border-gray-200 hover:scale-110 transition-transform"
+                      style={{ backgroundColor: color }}
+                    />
+                  ))}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="w-px h-6 bg-gray-200 mx-1" />
         <ToolbarButton
           onClick={() => {
             const url = window.prompt("Enter URL:");
@@ -206,15 +303,40 @@ function RichTextEditor({
         >
           <Link className="h-3.5 w-3.5" />
         </ToolbarButton>
+
+        {/* Image Upload */}
         <ToolbarButton
           onClick={() => {
-            const url = window.prompt("Enter image URL:");
-            if (url) exec("insertImage", url);
+            saveSelection();
+            imgInputRef.current?.click();
           }}
           title="Insert Image"
         >
           <Image className="h-3.5 w-3.5" />
         </ToolbarButton>
+        <input
+          ref={imgInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+              const dataUrl = ev.target?.result as string;
+              editorRef.current?.focus();
+              restoreSelection();
+              document.execCommand("insertHTML", false,
+                `<img src="${dataUrl}" alt="${file.name}" style="max-width:100%;height:auto;border-radius:8px;margin:8px 0;" />`
+              );
+              if (editorRef.current) onChange(editorRef.current.innerHTML);
+            };
+            reader.readAsDataURL(file);
+            e.target.value = "";
+          }}
+        />
+
         <ToolbarButton
           onClick={() => exec("formatBlock", "pre")}
           title="Code Block"
@@ -229,7 +351,7 @@ function RichTextEditor({
         onInput={() => {
           if (editorRef.current) onChange(editorRef.current.innerHTML);
         }}
-        className="min-h-[300px] max-h-[500px] overflow-y-auto p-4 text-sm leading-relaxed focus:outline-none prose prose-sm max-w-none [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:mt-4 [&_h1]:mb-2 [&_h2]:text-xl [&_h2]:font-bold [&_h2]:mt-4 [&_h2]:mb-2 [&_h3]:text-base [&_h3]:font-semibold [&_h3]:mt-3 [&_h3]:mb-1 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_li]:mb-1 [&_a]:text-blue-600 [&_a]:underline [&_pre]:bg-gray-100 [&_pre]:p-2 [&_pre]:rounded-lg [&_pre]:font-mono [&_pre]:text-xs [&_strong]:font-bold"
+        className="min-h-[300px] max-h-[500px] overflow-y-auto p-4 text-sm leading-relaxed focus:outline-none prose prose-sm max-w-none [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:mt-4 [&_h1]:mb-2 [&_h2]:text-xl [&_h2]:font-bold [&_h2]:mt-4 [&_h2]:mb-2 [&_h3]:text-base [&_h3]:font-semibold [&_h3]:mt-3 [&_h3]:mb-1 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_li]:mb-1 [&_a]:text-blue-600 [&_a]:underline [&_pre]:bg-gray-100 [&_pre]:p-2 [&_pre]:rounded-lg [&_pre]:font-mono [&_pre]:text-xs [&_strong]:font-bold [&_img]:max-w-full [&_img]:rounded-lg"
       />
     </div>
   );

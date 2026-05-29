@@ -29,7 +29,7 @@ interface UserRecord {
   email: string;
   countryCode?: string;
   mobile?: string;
-  role: string;
+  role: { _id: string; name: string } | string;
   isEmailVerified: boolean;
   isActive: boolean;
   insertedAt: number;
@@ -333,6 +333,33 @@ export default function UsersPage() {
   };
   const [empForm, setEmpForm] = useState(defaultEmpForm);
 
+  type EmpFormErrors = Partial<Record<keyof typeof defaultEmpForm, string>>;
+  const [empFormErrors, setEmpFormErrors] = useState<EmpFormErrors>({});
+
+  const validateEmpForm = (): EmpFormErrors => {
+    const errs: EmpFormErrors = {};
+    if (!empForm.name.trim()) {
+      errs.name = "Name is required.";
+    } else if (/\d/.test(empForm.name)) {
+      errs.name = "Name must not contain numbers.";
+    }
+    if (!empForm.email.trim()) {
+      errs.email = "Email is required.";
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(empForm.email)) {
+      errs.email = "Enter a valid email address.";
+    }
+    if (empForm.countryCode && !/^\d{2,3}$/.test(empForm.countryCode)) {
+      errs.countryCode = "Must be 2–3 digits.";
+    }
+    if (empForm.mobileNumber && !/^\d{10}$/.test(empForm.mobileNumber)) {
+      errs.mobileNumber = "Must be exactly 10 digits.";
+    }
+    if (!empForm.role) {
+      errs.role = "Role is required.";
+    }
+    return errs;
+  };
+
   // Auth helpers
   const getToken = useCallback(() => {
     const token = sessionStorage.getItem("auth_token");
@@ -380,6 +407,7 @@ export default function UsersPage() {
         search: debouncedSearch,
         pageNo: String(page),
         pageSize: String(perPage),
+        onlyEndUsers: "1",
       });
       const res = await fetch(`${API_BASE}/user/all?${params}`, {
         headers: authHeaders(token),
@@ -463,12 +491,12 @@ export default function UsersPage() {
     const token = getToken();
     if (!token) return;
     try {
-      const res = await fetch(`${API_BASE}/role/list?pageNo=1&pageSize=100`, {
+      const res = await fetch(`${API_BASE}/config?roles=1`, {
         headers: authHeaders(token),
       });
       if (!res.ok) return;
       const json = await res.json();
-      const records: RoleOption[] = json.data?.records ?? json.records ?? [];
+      const records: RoleOption[] = json.data?.roles ?? [];
       if (records.length > 0) setRoles(records);
     } catch {
       // silently ignore
@@ -705,13 +733,12 @@ export default function UsersPage() {
 
   // Employee add
   const handleAddEmployee = async () => {
-    if (!empForm.name.trim() || !empForm.email.trim() || !empForm.role) {
-      toast({
-        title: "Name, email and role are required",
-        variant: "destructive",
-      });
+    const errs = validateEmpForm();
+    if (Object.keys(errs).length > 0) {
+      setEmpFormErrors(errs);
       return;
     }
+    setEmpFormErrors({});
     const token = getToken();
     if (!token) return;
     setEmpFormLoading(true);
@@ -753,13 +780,12 @@ export default function UsersPage() {
   // Employee edit
   const handleEditEmployee = async () => {
     if (!editEmp) return;
-    if (!empForm.name.trim() || !empForm.email.trim() || !empForm.role) {
-      toast({
-        title: "Name, email and role are required",
-        variant: "destructive",
-      });
+    const errs = validateEmpForm();
+    if (Object.keys(errs).length > 0) {
+      setEmpFormErrors(errs);
       return;
     }
+    setEmpFormErrors({});
     const token = getToken();
     if (!token) return;
     setEmpFormLoading(true);
@@ -860,6 +886,7 @@ export default function UsersPage() {
     setShowAddEmp(false);
     setEditEmp(null);
     setEmpForm(defaultEmpForm);
+    setEmpFormErrors({});
   };
 
   const filteredOrders = orders.filter(
@@ -1318,26 +1345,52 @@ export default function UsersPage() {
                     </label>
                     <input
                       value={empForm.name}
-                      onChange={(e) =>
-                        setEmpForm((f) => ({ ...f, name: e.target.value }))
-                      }
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setEmpForm((f) => ({ ...f, name: val }));
+                        if (/\d/.test(val)) {
+                          setEmpFormErrors((errs) => ({ ...errs, name: "Name must not contain numbers." }));
+                        } else if (!val.trim()) {
+                          setEmpFormErrors((errs) => ({ ...errs, name: "Name is required." }));
+                        } else {
+                          setEmpFormErrors((errs) => ({ ...errs, name: undefined }));
+                        }
+                      }}
                       placeholder="Enter full name"
-                      className="w-full h-9 px-3 border border-gray-200 rounded-lg text-sm text-foreground outline-none focus:ring-2 focus:ring-[#1a2b6b]/20 focus:border-[#1a2b6b] transition-colors"
+                      className={`w-full h-9 px-3 border rounded-lg text-sm text-foreground outline-none focus:ring-2 focus:ring-[#1a2b6b]/20 focus:border-[#1a2b6b] transition-colors ${
+                        empFormErrors.name ? "border-red-400" : "border-gray-200"
+                      }`}
                     />
+                    {empFormErrors.name && (
+                      <p className="text-xs text-red-500 mt-0.5">{empFormErrors.name}</p>
+                    )}
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-sm font-semibold text-gray-700">
                       Email <span className="text-red-500">*</span>
                     </label>
                     <input
-                      type="email"
+                      type="text"
                       value={empForm.email}
-                      onChange={(e) =>
-                        setEmpForm((f) => ({ ...f, email: e.target.value }))
-                      }
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setEmpForm((f) => ({ ...f, email: val }));
+                        if (!val.trim()) {
+                          setEmpFormErrors((errs) => ({ ...errs, email: "Email is required." }));
+                        } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)) {
+                          setEmpFormErrors((errs) => ({ ...errs, email: "Enter a valid email address." }));
+                        } else {
+                          setEmpFormErrors((errs) => ({ ...errs, email: undefined }));
+                        }
+                      }}
                       placeholder="Enter email address"
-                      className="w-full h-9 px-3 border border-gray-200 rounded-lg text-sm text-foreground outline-none focus:ring-2 focus:ring-[#1a2b6b]/20 focus:border-[#1a2b6b] transition-colors"
+                      className={`w-full h-9 px-3 border rounded-lg text-sm text-foreground outline-none focus:ring-2 focus:ring-[#1a2b6b]/20 focus:border-[#1a2b6b] transition-colors ${
+                        empFormErrors.email ? "border-red-400" : "border-gray-200"
+                      }`}
                     />
+                    {empFormErrors.email && (
+                      <p className="text-xs text-red-500 mt-0.5">{empFormErrors.email}</p>
+                    )}
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1.5">
@@ -1346,15 +1399,25 @@ export default function UsersPage() {
                       </label>
                       <input
                         value={empForm.countryCode}
-                        onChange={(e) =>
-                          setEmpForm((f) => ({
-                            ...f,
-                            countryCode: e.target.value,
-                          }))
-                        }
+                        onChange={(e) => {
+                          const val = e.target.value.replace(/\D/g, "").slice(0, 3);
+                          setEmpForm((f) => ({ ...f, countryCode: val }));
+                          if (val && !/^\d{2,3}$/.test(val)) {
+                            setEmpFormErrors((errs) => ({ ...errs, countryCode: "Must be 2–3 digits." }));
+                          } else {
+                            setEmpFormErrors((errs) => ({ ...errs, countryCode: undefined }));
+                          }
+                        }}
                         placeholder="e.g. 61"
-                        className="w-full h-9 px-3 border border-gray-200 rounded-lg text-sm text-foreground outline-none focus:ring-2 focus:ring-[#1a2b6b]/20 focus:border-[#1a2b6b] transition-colors"
+                        inputMode="numeric"
+                        maxLength={3}
+                        className={`w-full h-9 px-3 border rounded-lg text-sm text-foreground outline-none focus:ring-2 focus:ring-[#1a2b6b]/20 focus:border-[#1a2b6b] transition-colors ${
+                          empFormErrors.countryCode ? "border-red-400" : "border-gray-200"
+                        }`}
                       />
+                      {empFormErrors.countryCode && (
+                        <p className="text-xs text-red-500 mt-0.5">{empFormErrors.countryCode}</p>
+                      )}
                     </div>
                     <div className="space-y-1.5">
                       <label className="text-sm font-semibold text-gray-700">
@@ -1362,15 +1425,25 @@ export default function UsersPage() {
                       </label>
                       <input
                         value={empForm.mobileNumber}
-                        onChange={(e) =>
-                          setEmpForm((f) => ({
-                            ...f,
-                            mobileNumber: e.target.value,
-                          }))
-                        }
+                        onChange={(e) => {
+                          const val = e.target.value.replace(/\D/g, "").slice(0, 10);
+                          setEmpForm((f) => ({ ...f, mobileNumber: val }));
+                          if (val && val.length !== 10) {
+                            setEmpFormErrors((errs) => ({ ...errs, mobileNumber: "Must be exactly 10 digits." }));
+                          } else {
+                            setEmpFormErrors((errs) => ({ ...errs, mobileNumber: undefined }));
+                          }
+                        }}
                         placeholder="Mobile number"
-                        className="w-full h-9 px-3 border border-gray-200 rounded-lg text-sm text-foreground outline-none focus:ring-2 focus:ring-[#1a2b6b]/20 focus:border-[#1a2b6b] transition-colors"
+                        inputMode="numeric"
+                        maxLength={10}
+                        className={`w-full h-9 px-3 border rounded-lg text-sm text-foreground outline-none focus:ring-2 focus:ring-[#1a2b6b]/20 focus:border-[#1a2b6b] transition-colors ${
+                          empFormErrors.mobileNumber ? "border-red-400" : "border-gray-200"
+                        }`}
                       />
+                      {empFormErrors.mobileNumber && (
+                        <p className="text-xs text-red-500 mt-0.5">{empFormErrors.mobileNumber}</p>
+                      )}
                     </div>
                   </div>
                   <div className="space-y-1.5">
@@ -1379,10 +1452,13 @@ export default function UsersPage() {
                     </label>
                     <select
                       value={empForm.role}
-                      onChange={(e) =>
-                        setEmpForm((f) => ({ ...f, role: e.target.value }))
-                      }
-                      className="w-full h-9 px-3 border border-gray-200 rounded-lg text-sm text-foreground outline-none focus:ring-2 focus:ring-[#1a2b6b]/20 focus:border-[#1a2b6b] transition-colors bg-white"
+                      onChange={(e) => {
+                        setEmpForm((f) => ({ ...f, role: e.target.value }));
+                        setEmpFormErrors((errs) => ({ ...errs, role: undefined }));
+                      }}
+                      className={`w-full h-9 px-3 border rounded-lg text-sm text-foreground outline-none focus:ring-2 focus:ring-[#1a2b6b]/20 focus:border-[#1a2b6b] transition-colors bg-white ${
+                        empFormErrors.role ? "border-red-400" : "border-gray-200"
+                      }`}
                     >
                       <option value="">Select role...</option>
                       {roles.map((r) => (
@@ -1391,6 +1467,9 @@ export default function UsersPage() {
                         </option>
                       ))}
                     </select>
+                    {empFormErrors.role && (
+                      <p className="text-xs text-red-500 mt-0.5">{empFormErrors.role}</p>
+                    )}
                   </div>
                 </div>
                 <div className="flex gap-3 px-6 pb-6">
@@ -1629,7 +1708,10 @@ export default function UsersPage() {
             <div>
               <p className="text-xs font-semibold text-gray-500 mb-1">Role</p>
               <p className="text-sm text-gray-700">
-                {userDetail?.role ?? selectedUser.role}
+                {userDetail?.role ??
+                  (typeof selectedUser.role === "string"
+                    ? selectedUser.role
+                    : selectedUser.role.name)}
               </p>
             </div>
             <div>

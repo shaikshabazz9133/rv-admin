@@ -3,16 +3,14 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, Menu, ChevronDown, LogOut, User } from "lucide-react";
-import { Input } from "@/components/ui/input";
+import { Menu, ChevronDown, LogOut, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface HeaderProps {
   onMenuToggle: () => void;
-  sidebarCollapsed: boolean;
 }
 
-export function Header({ onMenuToggle, sidebarCollapsed }: HeaderProps) {
+export function Header({ onMenuToggle }: HeaderProps) {
   const router = useRouter();
   const [profileOpen, setProfileOpen] = useState(false);
   const profileRef = useRef<HTMLDivElement>(null);
@@ -49,13 +47,6 @@ export function Header({ onMenuToggle, sidebarCollapsed }: HeaderProps) {
         >
           <Menu className="h-5 w-5" />
         </Button>
-        <div className="relative hidden sm:block">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-          <Input
-            placeholder="Search products, orders..."
-            className="w-64 pl-9 lg:w-80 bg-gray-50 border-gray-200 focus:bg-white"
-          />
-        </div>
       </div>
 
       {/* Right */}

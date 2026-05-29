@@ -3,9 +3,16 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { Plus, X, Loader2, Search, Trash2, ChevronLeft } from "lucide-react";
+import { Plus, X, Loader2, Search, Trash2, ChevronLeft, ChevronRight, ChevronDown } from "lucide-react";
 import Link from "next/link";
 import { useToast } from "@/hooks/use-toast";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const API_BASE = "https://dev-backend.rvadventureaustralia.com.au/api";
 
@@ -45,13 +52,24 @@ interface EbayPolicy {
   id: string;
   name: string;
 }
+interface EbayCategory {
+  categoryId: string;
+  categoryName: string;
+  children?: EbayCategory[];
+}
 interface ProductItem {
   _id: string;
   name: string;
   description?: string;
+  skuCode?: string;
   price?: number;
+  offerPrice?: number;
+  displayPic?: string;
   images?: string[];
   thumbnail?: string;
+  category?: { _id: string; name: string };
+  supplier?: { _id: string; name: string };
+  ratingsCount?: number;
 }
 
 // ─── Rich Text Editor ─────────────────────────────────────────────────────────
@@ -285,6 +303,9 @@ function RichTextEditor({
 }
 
 // ─── Product Card ─────────────────────────────────────────────────────────────
+const PLACEHOLDER_IMG =
+  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 80 80' fill='none'%3E%3Crect width='80' height='80' fill='%23e2e8f0'/%3E%3Ccircle cx='40' cy='30' r='14' fill='%2394a3b8'/%3E%3Cellipse cx='40' cy='68' rx='22' ry='14' fill='%2394a3b8'/%3E%3C/svg%3E";
+
 function ProductCard({
   product,
   selected,
@@ -294,69 +315,81 @@ function ProductCard({
   selected: boolean;
   onToggle: () => void;
 }) {
-  const img = product.images?.[0] || product.thumbnail;
+  const img = product.displayPic || product.images?.[0] || product.thumbnail;
+  const reviewCount = product.ratingsCount ?? 0;
+  const displayPrice = product.offerPrice ?? product.price;
   return (
     <div
       onClick={onToggle}
-      className={`relative cursor-pointer border-2 rounded-xl overflow-hidden transition-all ${selected ? "border-[#1a2b6b] shadow-md" : "border-gray-200 hover:border-gray-300"}`}
+      className={`relative cursor-pointer rounded-xl overflow-hidden transition-all bg-white ${
+        selected
+          ? "border-2 border-[#1a2b6b] shadow-lg"
+          : "border border-gray-200 hover:border-[#1a2b6b]/40 hover:shadow-md"
+      }`}
     >
+      {/* Checkbox */}
       <div className="absolute top-2 left-2 z-10">
         <div
-          className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${selected ? "bg-[#1a2b6b] border-[#1a2b6b]" : "bg-white border-gray-300"}`}
+          className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors shadow-sm ${
+            selected ? "bg-[#1a2b6b] border-[#1a2b6b]" : "bg-white border-gray-300"
+          }`}
         >
           {selected && (
-            <svg
-              className="w-3 h-3 text-white"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={3}
-                d="M5 13l4 4L19 7"
-              />
+            <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
             </svg>
           )}
         </div>
       </div>
-      <div className="aspect-square bg-gray-50 flex items-center justify-center overflow-hidden">
-        {img ? (
-          <img
-            src={img}
-            alt={product.name}
-            className="w-full h-full object-contain p-2"
-          />
-        ) : (
-          <div className="w-12 h-12 bg-gray-200 rounded" />
+
+      {/* Image */}
+      <div className="relative h-44 bg-gray-50 flex items-center justify-center overflow-hidden">
+        <img
+          src={img || PLACEHOLDER_IMG}
+          alt={product.name}
+          className="w-full h-full object-contain p-3"
+          onError={(e) => {
+            (e.currentTarget as HTMLImageElement).src = PLACEHOLDER_IMG;
+          }}
+        />
+        {selected && (
+          <div className="absolute inset-0 bg-[#1a2b6b]/5 pointer-events-none" />
         )}
       </div>
-      <div className="p-3 bg-white border-t border-gray-100">
-        <div className="flex items-center gap-0.5 mb-1">
+
+      {/* Info */}
+      <div className="p-3 border-t border-gray-100">
+        {/* Stars */}
+        <div className="flex items-center gap-0.5 mb-1.5">
           {[1, 2, 3, 4, 5].map((s) => (
-            <svg
-              key={s}
-              className="w-3 h-3 text-gray-200"
-              fill="currentColor"
-              viewBox="0 0 24 24"
-            >
+            <svg key={s} className="w-3 h-3 text-gray-200" fill="currentColor" viewBox="0 0 24 24">
               <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" />
             </svg>
           ))}
-          <span className="text-xs text-gray-400 ml-1">Reviews (0)</span>
+          <span className="text-[10px] text-gray-400 ml-1">Reviews ({reviewCount})</span>
         </div>
-        <h4 className="text-xs font-semibold text-gray-800 line-clamp-2 mb-1">
+
+        {/* Name */}
+        <h4 className="text-[13px] font-semibold text-gray-800 line-clamp-2 leading-snug mb-1">
           {product.name}
         </h4>
+
+        {/* Category */}
+        {product.category?.name && (
+          <p className="text-[11px] text-gray-400 mb-1">{product.category.name}</p>
+        )}
+
+        {/* Description */}
         {product.description && (
-          <p className="text-xs text-gray-500 line-clamp-2 mb-1">
+          <p className="text-[11px] text-gray-500 line-clamp-2 mb-2 leading-relaxed">
             {product.description.replace(/<[^>]+>/g, "")}
           </p>
         )}
-        {product.price != null && (
-          <p className="text-sm font-bold text-gray-800">
-            $ {product.price.toFixed(2)}
+
+        {/* Price */}
+        {displayPrice != null && (
+          <p className="text-sm font-bold text-gray-900">
+            $ {displayPrice.toFixed(2)}
           </p>
         )}
       </div>
@@ -364,7 +397,9 @@ function ProductCard({
   );
 }
 
-// ─── Product Search Tab ───────────────────────────────────────────────────────
+// ─── Product List Tab (Related Products / Accessories) ─────────────────────────
+const PAGE_SIZE = 25;
+
 function ProductSearchTab({
   token,
   selected,
@@ -375,19 +410,30 @@ function ProductSearchTab({
   onToggle: (id: string) => void;
 }) {
   const [query, setQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
   const [products, setProducts] = useState<ProductItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const search = useCallback(
-    (q: string) => {
+  const fetchProducts = useCallback(
+    (q: string, p: number) => {
       setLoading(true);
-      fetch(
-        `${API_BASE}/product?search=${encodeURIComponent(q)}&page=1&limit=20`,
-        { headers: authHeaders(token) },
-      )
+      const params = new URLSearchParams({
+        includeInactive: "1",
+        search: q,
+        pageNo: String(p),
+        pageSize: String(PAGE_SIZE),
+      });
+      fetch(`${API_BASE}/product/all?${params}`, { headers: authHeaders(token) })
         .then((r) => r.json())
-        .then((d) => setProducts(d.data?.products ?? d.data ?? []))
+        .then((d) => {
+          setProducts(d.data?.records?.products ?? []);
+          setTotal(d.data?.totalRecords ?? 0);
+          setTotalPages(d.data?.totalPages ?? 1);
+        })
         .catch(() => setProducts([]))
         .finally(() => setLoading(false));
     },
@@ -395,46 +441,115 @@ function ProductSearchTab({
   );
 
   useEffect(() => {
-    search("");
-  }, [search]);
+    fetchProducts(debouncedQuery, page);
+  }, [fetchProducts, debouncedQuery, page]);
 
   const handleSearch = (v: string) => {
     setQuery(v);
     if (timerRef.current) clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(() => search(v), 400);
+    timerRef.current = setTimeout(() => {
+      setDebouncedQuery(v);
+      setPage(1);
+    }, 400);
   };
 
   return (
     <div>
-      <div className="relative mb-4 w-72">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-        <input
-          value={query}
-          onChange={(e) => handleSearch(e.target.value)}
-          placeholder="Search products..."
-          className="w-full h-9 pl-9 pr-3 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-[#1a2b6b]/20 focus:border-[#1a2b6b]"
-        />
+      {/* Search + selected count */}
+      <div className="flex items-center gap-4 mb-4 flex-wrap">
+        <div className="relative w-80">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <input
+            value={query}
+            onChange={(e) => handleSearch(e.target.value)}
+            placeholder="Search products..."
+            className="w-full h-9 pl-9 pr-3 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-[#1a2b6b]/20 focus:border-[#1a2b6b]"
+          />
+        </div>
+        {selected.length > 0 && (
+          <span className="text-xs font-semibold text-[#1a2b6b] bg-[#1a2b6b]/10 px-3 py-1.5 rounded-full">
+            {selected.length} selected
+          </span>
+        )}
       </div>
+
+      {/* Grid */}
       {loading ? (
-        <div className="flex justify-center py-10">
-          <Loader2 className="h-6 w-6 animate-spin text-[#1a2b6b]" />
+        <div className="flex justify-center py-12">
+          <Loader2 className="h-7 w-7 animate-spin text-[#1a2b6b]" />
         </div>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-4">
-          {products.map((p) => (
-            <ProductCard
-              key={p._id}
-              product={p}
-              selected={selected.includes(p._id)}
-              onToggle={() => onToggle(p._id)}
-            />
-          ))}
-          {products.length === 0 && (
-            <p className="col-span-5 text-center text-sm text-gray-400 py-8">
-              No products found.
-            </p>
+        <>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-4">
+            {products.map((p) => (
+              <ProductCard
+                key={p._id}
+                product={p}
+                selected={selected.includes(p._id)}
+                onToggle={() => onToggle(p._id)}
+              />
+            ))}
+            {products.length === 0 && (
+              <p className="col-span-5 text-center text-sm text-gray-400 py-10">
+                No products found.
+              </p>
+            )}
+          </div>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mt-5 pt-4 border-t border-gray-100">
+              <p className="text-xs text-gray-500">
+                Showing {total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1}&ndash;{Math.min(page * PAGE_SIZE, total)} of {total}
+              </p>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setPage((prev) => Math.max(1, prev - 1))}
+                  disabled={page === 1 || loading}
+                  className="w-8 h-8 rounded-full border border-gray-200 bg-white flex items-center justify-center text-gray-500 hover:border-[#1a2b6b] hover:text-[#1a2b6b] disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                <div className="flex items-center bg-gray-100 rounded-2xl p-1 gap-0.5">
+                  {(() => {
+                    const pages: (number | "...")[] = [];
+                    if (totalPages <= 7) {
+                      for (let i = 1; i <= totalPages; i++) pages.push(i);
+                    } else {
+                      pages.push(1);
+                      if (page > 3) pages.push("...");
+                      for (let i = Math.max(2, page - 1); i <= Math.min(totalPages - 1, page + 1); i++) pages.push(i);
+                      if (page < totalPages - 2) pages.push("...");
+                      pages.push(totalPages);
+                    }
+                    return pages.map((pg, i) =>
+                      pg === "..." ? (
+                        <span key={`d${i}`} className="w-7 text-center text-xs text-gray-400">&hellip;</span>
+                      ) : (
+                        <button
+                          key={pg}
+                          onClick={() => setPage(pg as number)}
+                          className={`w-8 h-7 rounded-xl text-xs font-semibold transition-all ${
+                            pg === page ? "bg-[#1a2b6b] text-white shadow-sm" : "text-gray-500 hover:text-[#1a2b6b] hover:bg-white"
+                          }`}
+                        >
+                          {pg}
+                        </button>
+                      ),
+                    );
+                  })()}
+                </div>
+                <button
+                  onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
+                  disabled={page === totalPages || loading}
+                  className="w-8 h-8 rounded-full border border-gray-200 bg-white flex items-center justify-center text-gray-500 hover:border-[#1a2b6b] hover:text-[#1a2b6b] disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                >
+                  <ChevronLeft className="h-4 w-4 rotate-180" />
+                </button>
+              </div>
+            </div>
           )}
-        </div>
+        </>
       )}
     </div>
   );
@@ -445,6 +560,10 @@ const inputCls =
   "w-full h-10 px-3 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-[#1a2b6b]/20 focus:border-[#1a2b6b] transition-colors bg-white";
 const inputErrCls =
   "w-full h-10 px-3 border border-red-400 rounded-lg text-sm outline-none focus:ring-2 focus:ring-red-200 transition-colors bg-white";
+const numberInputCls =
+  "w-full h-10 px-3 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-[#1a2b6b]/20 focus:border-[#1a2b6b] transition-colors bg-white [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none";
+const numberInputErrCls =
+  "w-full h-10 px-3 border border-red-400 rounded-lg text-sm outline-none focus:ring-2 focus:ring-red-200 transition-colors bg-white [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none";
 const selectCls =
   "w-full h-10 px-3 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-[#1a2b6b]/20 focus:border-[#1a2b6b] transition-colors bg-white cursor-pointer appearance-none";
 const labelCls = "block text-sm font-semibold text-[#1a2b6b] mb-1.5";
@@ -565,6 +684,280 @@ function SpecificationsTab({
   );
 }
 
+// ─── eBay Category Picker ─────────────────────────────────────────────────────
+function EbayCategoryPicker({
+  token,
+  value,
+  valuePath,
+  onChange,
+}: {
+  token: string;
+  value: string;
+  valuePath: { id: string; name: string }[];
+  onChange: (id: string, path: { id: string; name: string }[]) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [rootCats, setRootCats] = useState<EbayCategory[]>([]);
+  const [loadingCats, setLoadingCats] = useState(false);
+  // browsePath holds the drill-down stack — each entry is a node we navigated into
+  const [browsePath, setBrowsePath] = useState<EbayCategory[]>([]);
+  const [search, setSearch] = useState("");
+  const searchRef = useRef<HTMLInputElement>(null);
+
+  // Fetch categories once on first open
+  useEffect(() => {
+    if (!open || rootCats.length > 0) return;
+    setLoadingCats(true);
+    fetch(`${API_BASE}/ebay/categories`, { headers: authHeaders(token) })
+      .then((r) => r.json())
+      .then((d) => {
+        // Handle: array of roots | { data: [...] } | single root with children
+        const list: EbayCategory[] = Array.isArray(d)
+          ? d
+          : Array.isArray(d?.data)
+          ? d.data
+          : (d?.data?.categories ?? d?.categories ?? []);
+        setRootCats(list);
+      })
+      .catch(() => {})
+      .finally(() => setLoadingCats(false));
+  }, [open, token, rootCats.length]);
+
+  // Reset browse state every time dialog opens
+  useEffect(() => {
+    if (open) {
+      setBrowsePath([]);
+      setSearch("");
+      setTimeout(() => searchRef.current?.focus(), 80);
+    }
+  }, [open]);
+
+  const currentNode = browsePath[browsePath.length - 1] ?? null;
+
+  // Items to show at current level
+  const currentItems: EbayCategory[] =
+    currentNode ? (currentNode.children ?? []) : rootCats;
+
+  // Filter by search query
+  const filteredItems = search
+    ? currentItems.filter((c) =>
+        c.categoryName.toLowerCase().includes(search.toLowerCase()),
+      )
+    : currentItems;
+
+  const isLeaf = (cat: EbayCategory) =>
+    !cat.children || cat.children.length === 0;
+
+  const handleDrillDown = (cat: EbayCategory) => {
+    if (isLeaf(cat)) {
+      handleSelect(cat);
+    } else {
+      setBrowsePath((p) => [...p, cat]);
+      setSearch("");
+      setTimeout(() => searchRef.current?.focus(), 50);
+    }
+  };
+
+  const handleSelect = (cat: EbayCategory) => {
+    const path = [...browsePath, cat].map((c) => ({
+      id: c.categoryId,
+      name: c.categoryName,
+    }));
+    onChange(cat.categoryId, path);
+    setOpen(false);
+  };
+
+  const handleBreadcrumb = (idx: number) => {
+    setBrowsePath((p) => (idx < 0 ? [] : p.slice(0, idx + 1)));
+    setSearch("");
+    setTimeout(() => searchRef.current?.focus(), 50);
+  };
+
+  const depth = browsePath.length;
+  const levelLabel =
+    depth === 0
+      ? "L1 \u2014 TOP LEVEL"
+      : depth === 1
+      ? "L2 \u2014 SUB CATEGORIES"
+      : `L${depth + 1} \u2014 LEAF CATEGORIES`;
+
+  const displayName =
+    value && valuePath.length > 0
+      ? valuePath[valuePath.length - 1].name
+      : "";
+
+  return (
+    <>
+      {/* Trigger button */}
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="flex h-10 w-full items-center justify-between whitespace-nowrap rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-[#1a2b6b]/20 focus:border-[#1a2b6b] transition-colors"
+      >
+        <span className={displayName ? "text-gray-900" : "text-gray-400"}>
+          {displayName || "Select eBay category..."}
+        </span>
+        <ChevronDown className="h-4 w-4 opacity-50 shrink-0" />
+      </button>
+
+      {/* Selected path breadcrumb chips */}
+      {valuePath.length > 0 && (
+        <div className="flex items-center gap-1 flex-wrap mt-2">
+          {valuePath.map((p, i) => (
+            <>
+              {i > 0 && (
+                <ChevronRight className="h-3 w-3 text-gray-400 shrink-0" key={`arr-${p.id}`} />
+              )}
+              <span
+                key={p.id}
+                className={`text-xs px-2.5 py-1 rounded-full font-medium ${
+                  i === valuePath.length - 1
+                    ? "bg-[#1a2b6b] text-white"
+                    : "bg-[#1a2b6b]/10 text-[#1a2b6b]"
+                }`}
+              >
+                {p.name}
+              </span>
+            </>
+          ))}
+        </div>
+      )}
+
+      {/* Dialog */}
+      {open && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
+          onClick={(e) => e.target === e.currentTarget && setOpen(false)}
+        >
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg flex flex-col max-h-[90vh] overflow-hidden">
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
+              <h3 className="text-base font-semibold text-gray-900">
+                Select eBay Category
+              </h3>
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                className="text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-100 transition-colors"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Breadcrumb navigation */}
+            <div className="px-6 pt-4 pb-0 flex items-center gap-1 flex-wrap shrink-0 min-h-[32px]">
+              <button
+                type="button"
+                onClick={() => handleBreadcrumb(-1)}
+                className={`text-sm font-medium px-1 py-0.5 rounded transition-colors ${
+                  depth === 0
+                    ? "text-gray-900 font-semibold pointer-events-none"
+                    : "text-[#1a2b6b] hover:underline"
+                }`}
+              >
+                All Categories
+              </button>
+              {browsePath.map((b, i) => (
+                <>
+                  <ChevronRight
+                    key={`sep-${b.categoryId}`}
+                    className="h-3.5 w-3.5 text-gray-300 shrink-0"
+                  />
+                  <button
+                    key={b.categoryId}
+                    type="button"
+                    onClick={() => handleBreadcrumb(i)}
+                    className={`text-sm font-medium px-1 py-0.5 rounded transition-colors ${
+                      i === depth - 1
+                        ? "text-gray-900 font-semibold pointer-events-none"
+                        : "text-[#1a2b6b] hover:underline"
+                    }`}
+                  >
+                    {b.categoryName}
+                  </button>
+                </>
+              ))}
+            </div>
+
+            {/* Search */}
+            <div className="px-6 pt-3 pb-2 shrink-0">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <input
+                  ref={searchRef}
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder={
+                    currentNode
+                      ? `Search in "${currentNode.categoryName}"...`
+                      : "Search L1 categories..."
+                  }
+                  className="w-full h-10 pl-9 pr-3 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-[#1a2b6b]/20 focus:border-[#1a2b6b] transition-colors bg-white"
+                />
+              </div>
+            </div>
+
+            {/* Level label */}
+            <div className="px-6 pb-1 shrink-0">
+              <p className="text-[10px] font-bold tracking-widest text-gray-400 uppercase">
+                {levelLabel}
+              </p>
+            </div>
+
+            {/* Category list */}
+            <div className="overflow-y-auto flex-1 px-4 pb-4">
+              {loadingCats ? (
+                <div className="flex justify-center py-10">
+                  <Loader2 className="h-6 w-6 animate-spin text-[#1a2b6b]" />
+                </div>
+              ) : filteredItems.length === 0 ? (
+                <p className="text-sm text-gray-400 text-center py-10">
+                  No categories found.
+                </p>
+              ) : (
+                <div className="divide-y divide-gray-100">
+                  {filteredItems.map((cat) => {
+                    const leaf = isLeaf(cat);
+                    const count = cat.children?.length ?? 0;
+                    return (
+                      <div
+                        key={cat.categoryId}
+                        onClick={() => handleDrillDown(cat)}
+                        className="flex items-center justify-between py-3 px-3 -mx-1 rounded-lg hover:bg-[#1a2b6b]/5 cursor-pointer group transition-colors"
+                      >
+                        <span className="text-sm text-gray-700 font-medium select-none">
+                          {cat.categoryName}
+                        </span>
+                        {leaf ? (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleSelect(cat);
+                            }}
+                            className="text-xs font-semibold text-[#1a2b6b] px-2.5 py-1 rounded-md hover:bg-[#1a2b6b]/10 transition-colors shrink-0"
+                          >
+                            Select
+                          </button>
+                        ) : (
+                          <div className="flex items-center gap-1 text-gray-400 group-hover:text-[#1a2b6b] transition-colors shrink-0">
+                            <span className="text-xs font-semibold">{count}</span>
+                            <ChevronRight className="h-4 w-4" />
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function AddProductPage() {
   const router = useRouter();
@@ -610,10 +1003,11 @@ export default function AddProductPage() {
     weight: "",
     quantity: "",
     freeShipping: "",
-    tags: "",
     cat1Id: "",
     cat2Id: "",
     cat3Id: "",
+    displayPicAltText: "",
+    imagesAltText: "",
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [imageFiles, setImageFiles] = useState<File[]>([]);
@@ -635,6 +1029,9 @@ export default function AddProductPage() {
   const [selectedRelated, setSelectedRelated] = useState<string[]>([]);
   const [selectedAccessories, setSelectedAccessories] = useState<string[]>([]);
   const [selectedReviews, setSelectedReviews] = useState<string[]>([]);
+  const [ebayCategoryPath, setEbayCategoryPath] = useState<
+    { id: string; name: string }[]
+  >([]);
 
   // ── Derived category levels (flat list filtered by level + parent)
   const cat1Options = categories.filter((c) => c.level === 1 && c.isActive);
@@ -740,7 +1137,7 @@ export default function AddProductPage() {
     fd.append("weight", form.weight);
     fd.append("price", form.price);
     if (form.quantity) fd.append("quantity", form.quantity);
-    fd.append("category", form.cat3Id || form.cat2Id || form.cat1Id);
+    fd.append("categories", form.cat3Id || form.cat2Id || form.cat1Id);
     fd.append("supplier", form.supplierId);
     fd.append("skuCode", form.skuCode);
     fd.append("offerPrice", form.offerPrice);
@@ -758,7 +1155,9 @@ export default function AddProductPage() {
     fd.append("ebayPaymentPolicyId", form.ebayPaymentPolicyId);
     fd.append("ebayReturnPolicyId", form.ebayReturnPolicyId);
     fd.append("ebayShippingPolicyId", form.ebayFulfillmentPolicyId);
-    fd.append("tags", form.tags);
+    fd.append("tags", "");
+    if (form.displayPicAltText.trim()) fd.append("displayPicAltText", form.displayPicAltText.trim());
+    if (form.imagesAltText.trim()) fd.append("imagesAltText", form.imagesAltText.trim());
     fd.append("hasFreeShipping", form.freeShipping || "false");
     fd.append("isActive", status === "active" ? "true" : "false");
     // Display picture
@@ -768,9 +1167,9 @@ export default function AddProductPage() {
     imageFiles.forEach((file, i) => {
       if (i !== displayImageIdx) fd.append("images", file, file.name);
     });
-    // Accessories & related
-    selectedAccessories.forEach((id) => fd.append("accessories", id));
-    selectedRelated.forEach((id) => fd.append("relatedProducts", id));
+    // Accessories & related — sent as comma-separated strings
+    fd.append("accessories", selectedAccessories.join(","));
+    fd.append("relatedProducts", selectedRelated.join(","));
     return fd;
   };
 
@@ -810,6 +1209,7 @@ export default function AddProductPage() {
         description: `Product ${status === "draft" ? "saved as draft" : "published"} successfully.`,
         variant: "success" as any,
       });
+      router.push("/dashboard/products");
     } catch (err: any) {
       toast({
         title: "Error",
@@ -997,7 +1397,7 @@ export default function AddProductPage() {
               type="number"
               min="0"
               step="0.01"
-              className={errors.offerPrice ? inputErrCls : inputCls}
+              className={errors.offerPrice ? numberInputErrCls : numberInputCls}
             />
           </Field>
 
@@ -1020,12 +1420,15 @@ export default function AddProductPage() {
           </Field>
 
           {/* Row 3 */}
-          <Field label="eBay Category ID">
-            <input
+          <Field label="eBay Category">
+            <EbayCategoryPicker
+              token={token!}
               value={form.ebayCategoryId}
-              onChange={(e) => set("ebayCategoryId", e.target.value)}
-              placeholder="Enter eBay Category ID (optional)"
-              className={inputCls}
+              valuePath={ebayCategoryPath}
+              onChange={(id, path) => {
+                set("ebayCategoryId", id);
+                setEbayCategoryPath(path);
+              }}
             />
           </Field>
           <Field label="eBay EPID">
@@ -1037,40 +1440,36 @@ export default function AddProductPage() {
             />
           </Field>
           <Field label="eBay Package Type">
-            <div className="relative">
-              <select
-                value={form.ebayPackageType}
-                onChange={(e) => set("ebayPackageType", e.target.value)}
-                className={selectCls}
-              >
-                <option value=""></option>
+            <Select
+              value={form.ebayPackageType || undefined}
+              onValueChange={(v) => set("ebayPackageType", v)}
+            >
+              <SelectTrigger className="w-full h-10 text-sm border-gray-300 focus:ring-2 focus:ring-[#1a2b6b]/20 focus:border-[#1a2b6b]">
+                <SelectValue placeholder="Select package type..." />
+              </SelectTrigger>
+              <SelectContent>
                 {packageTypes.map((p) => (
-                  <option key={p} value={p}>
-                    {p}
-                  </option>
+                  <SelectItem key={p} value={p}>{p}</SelectItem>
                 ))}
-              </select>
-              <ChevronLeft className="absolute right-3 top-1/2 -translate-y-1/2 rotate-[-90deg] h-4 w-4 text-gray-400 pointer-events-none" />
-            </div>
+              </SelectContent>
+            </Select>
           </Field>
 
           {/* Row 4 */}
           <Field label="eBay Dimension Units">
-            <div className="relative">
-              <select
-                value={form.ebayDimensionUnit}
-                onChange={(e) => set("ebayDimensionUnit", e.target.value)}
-                className={selectCls}
-              >
-                <option value=""></option>
+            <Select
+              value={form.ebayDimensionUnit || undefined}
+              onValueChange={(v) => set("ebayDimensionUnit", v)}
+            >
+              <SelectTrigger className="w-full h-10 text-sm border-gray-300 focus:ring-2 focus:ring-[#1a2b6b]/20 focus:border-[#1a2b6b]">
+                <SelectValue placeholder="Select dimension unit..." />
+              </SelectTrigger>
+              <SelectContent>
                 {dimensionUnits.map((d) => (
-                  <option key={d} value={d}>
-                    {d}
-                  </option>
+                  <SelectItem key={d} value={d}>{d}</SelectItem>
                 ))}
-              </select>
-              <ChevronLeft className="absolute right-3 top-1/2 -translate-y-1/2 rotate-[-90deg] h-4 w-4 text-gray-400 pointer-events-none" />
-            </div>
+              </SelectContent>
+            </Select>
           </Field>
           <Field label="eBay Length">
             <input
@@ -1080,7 +1479,7 @@ export default function AddProductPage() {
               type="number"
               min="0"
               step="0.01"
-              className={inputCls}
+              className={numberInputCls}
             />
           </Field>
 
@@ -1093,7 +1492,7 @@ export default function AddProductPage() {
               type="number"
               min="0"
               step="0.01"
-              className={inputCls}
+              className={numberInputCls}
             />
           </Field>
           <Field label="eBay Height">
@@ -1104,7 +1503,7 @@ export default function AddProductPage() {
               type="number"
               min="0"
               step="0.01"
-              className={inputCls}
+              className={numberInputCls}
             />
           </Field>
 
@@ -1125,63 +1524,57 @@ export default function AddProductPage() {
               type="number"
               min="0"
               step="0.01"
-              className={inputCls}
+              className={numberInputCls}
             />
           </Field>
 
           {/* Row 7 */}
           <Field label="eBay Payment Policy">
-            <div className="relative">
-              <select
-                value={form.ebayPaymentPolicyId}
-                onChange={(e) => set("ebayPaymentPolicyId", e.target.value)}
-                className={selectCls}
-              >
-                <option value="">Select payment policy...</option>
+            <Select
+              value={form.ebayPaymentPolicyId || undefined}
+              onValueChange={(v) => set("ebayPaymentPolicyId", v)}
+            >
+              <SelectTrigger className="w-full h-10 text-sm border-gray-300 focus:ring-2 focus:ring-[#1a2b6b]/20 focus:border-[#1a2b6b]">
+                <SelectValue placeholder="Select payment policy..." />
+              </SelectTrigger>
+              <SelectContent>
                 {paymentPolicies.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
+                  <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
                 ))}
-              </select>
-              <ChevronLeft className="absolute right-3 top-1/2 -translate-y-1/2 rotate-[-90deg] h-4 w-4 text-gray-400 pointer-events-none" />
-            </div>
+              </SelectContent>
+            </Select>
           </Field>
           <Field label="eBay Return Policy">
-            <div className="relative">
-              <select
-                value={form.ebayReturnPolicyId}
-                onChange={(e) => set("ebayReturnPolicyId", e.target.value)}
-                className={selectCls}
-              >
-                <option value="">Select return policy...</option>
+            <Select
+              value={form.ebayReturnPolicyId || undefined}
+              onValueChange={(v) => set("ebayReturnPolicyId", v)}
+            >
+              <SelectTrigger className="w-full h-10 text-sm border-gray-300 focus:ring-2 focus:ring-[#1a2b6b]/20 focus:border-[#1a2b6b]">
+                <SelectValue placeholder="Select return policy..." />
+              </SelectTrigger>
+              <SelectContent>
                 {returnPolicies.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
+                  <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
                 ))}
-              </select>
-              <ChevronLeft className="absolute right-3 top-1/2 -translate-y-1/2 rotate-[-90deg] h-4 w-4 text-gray-400 pointer-events-none" />
-            </div>
+              </SelectContent>
+            </Select>
           </Field>
 
           {/* Row 8 */}
           <Field label="eBay Shipping Policy">
-            <div className="relative">
-              <select
-                value={form.ebayFulfillmentPolicyId}
-                onChange={(e) => set("ebayFulfillmentPolicyId", e.target.value)}
-                className={selectCls}
-              >
-                <option value="">Select shipping policy...</option>
+            <Select
+              value={form.ebayFulfillmentPolicyId || undefined}
+              onValueChange={(v) => set("ebayFulfillmentPolicyId", v)}
+            >
+              <SelectTrigger className="w-full h-10 text-sm border-gray-300 focus:ring-2 focus:ring-[#1a2b6b]/20 focus:border-[#1a2b6b]">
+                <SelectValue placeholder="Select shipping policy..." />
+              </SelectTrigger>
+              <SelectContent>
                 {fulfillmentPolicies.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
+                  <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
                 ))}
-              </select>
-              <ChevronLeft className="absolute right-3 top-1/2 -translate-y-1/2 rotate-[-90deg] h-4 w-4 text-gray-400 pointer-events-none" />
-            </div>
+              </SelectContent>
+            </Select>
           </Field>
           <Field label="Price" required error={errors.price}>
             <input
@@ -1191,31 +1584,29 @@ export default function AddProductPage() {
               type="number"
               min="0"
               step="0.01"
-              className={errors.price ? inputErrCls : inputCls}
+              className={errors.price ? numberInputErrCls : numberInputCls}
             />
           </Field>
 
           {/* Row 9 */}
           <Field label="Select Supplier" required error={errors.supplierId}>
-            <div className="relative">
-              <select
-                value={form.supplierId}
-                onChange={(e) => set("supplierId", e.target.value)}
-                className={
-                  errors.supplierId
-                    ? `${inputErrCls} cursor-pointer appearance-none`
-                    : `${selectCls}`
-                }
+            <Select
+              value={form.supplierId || undefined}
+              onValueChange={(v) => set("supplierId", v)}
+            >
+              <SelectTrigger
+                className={`w-full h-10 text-sm focus:ring-2 focus:ring-[#1a2b6b]/20 focus:border-[#1a2b6b] ${
+                  errors.supplierId ? "border-red-400" : "border-gray-300"
+                }`}
               >
-                <option value=""></option>
+                <SelectValue placeholder="Select supplier..." />
+              </SelectTrigger>
+              <SelectContent>
                 {suppliers.map((s) => (
-                  <option key={s._id} value={s._id}>
-                    {s.name}
-                  </option>
+                  <SelectItem key={s._id} value={s._id}>{s.name}</SelectItem>
                 ))}
-              </select>
-              <ChevronLeft className="absolute right-3 top-1/2 -translate-y-1/2 rotate-[-90deg] h-4 w-4 text-gray-400 pointer-events-none" />
-            </div>
+              </SelectContent>
+            </Select>
           </Field>
           <Field label="Weight" required error={errors.weight}>
             <input
@@ -1225,7 +1616,7 @@ export default function AddProductPage() {
               type="number"
               min="0"
               step="0.01"
-              className={errors.weight ? inputErrCls : inputCls}
+              className={errors.weight ? numberInputErrCls : numberInputCls}
             />
           </Field>
 
@@ -1238,120 +1629,122 @@ export default function AddProductPage() {
               type="number"
               min="0"
               step="1"
-              className={inputCls}
+              className={numberInputCls}
             />
           </Field>
           <Field label="Free Shipping">
-            <div className="relative">
-              <select
-                value={form.freeShipping}
-                onChange={(e) => set("freeShipping", e.target.value)}
-                className={selectCls}
-              >
-                <option value=""></option>
-                <option value="true">Yes</option>
-                <option value="false">No</option>
-              </select>
-              <ChevronLeft className="absolute right-3 top-1/2 -translate-y-1/2 rotate-[-90deg] h-4 w-4 text-gray-400 pointer-events-none" />
-            </div>
+            <Select
+              value={form.freeShipping || undefined}
+              onValueChange={(v) => set("freeShipping", v)}
+            >
+              <SelectTrigger className="w-full h-10 text-sm border-gray-300 focus:ring-2 focus:ring-[#1a2b6b]/20 focus:border-[#1a2b6b]">
+                <SelectValue placeholder="Select..." />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="true">Yes</SelectItem>
+                <SelectItem value="false">No</SelectItem>
+              </SelectContent>
+            </Select>
           </Field>
-          <Field label="Tags">
+          <Field label="Category 1L" required error={errors.cat1Id}>
+            <Select
+              value={form.cat1Id || undefined}
+              onValueChange={(v) => {
+                set("cat1Id", v);
+                set("cat2Id", "");
+                set("cat3Id", "");
+              }}
+            >
+              <SelectTrigger
+                className={`w-full h-10 text-sm focus:ring-2 focus:ring-[#1a2b6b]/20 focus:border-[#1a2b6b] ${
+                  errors.cat1Id ? "border-red-400" : "border-gray-300"
+                }`}
+              >
+                <SelectValue placeholder="Select category..." />
+              </SelectTrigger>
+              <SelectContent>
+                {cat1Options.map((c) => (
+                  <SelectItem key={c._id} value={c._id}>{c.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+          <Field label="Category 2L">
+            <Select
+              value={form.cat2Id || undefined}
+              onValueChange={(v) => {
+                set("cat2Id", v);
+                set("cat3Id", "");
+              }}
+              disabled={!form.cat1Id || cat2Options.length === 0}
+            >
+              <SelectTrigger className="w-full h-10 text-sm border-gray-300 focus:ring-2 focus:ring-[#1a2b6b]/20 focus:border-[#1a2b6b] disabled:opacity-50">
+                <SelectValue placeholder="Select category..." />
+              </SelectTrigger>
+              <SelectContent>
+                {cat2Options.map((c) => (
+                  <SelectItem key={c._id} value={c._id}>{c.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+          <Field label="Category 3L">
+            <Select
+              value={form.cat3Id || undefined}
+              onValueChange={(v) => set("cat3Id", v)}
+              disabled={!form.cat2Id || cat3Options.length === 0}
+            >
+              <SelectTrigger className="w-full h-10 text-sm border-gray-300 focus:ring-2 focus:ring-[#1a2b6b]/20 focus:border-[#1a2b6b] disabled:opacity-50">
+                <SelectValue placeholder="Select category..." />
+              </SelectTrigger>
+              <SelectContent>
+                {cat3Options.map((c) => (
+                  <SelectItem key={c._id} value={c._id}>{c.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+
+          {/* Row — Display Pic Alt Text + Images Alt Text */}
+          <Field label="Display Pic Alt Text">
             <input
-              value={form.tags}
-              onChange={(e) => set("tags", e.target.value)}
-              placeholder="Comma-separated tags (optional)"
+              value={form.displayPicAltText}
+              onChange={(e) => set("displayPicAltText", e.target.value)}
+              placeholder="Enter display picture alt text"
               className={inputCls}
             />
           </Field>
-          <Field label="Category 1L" required error={errors.cat1Id}>
-            <div className="relative">
-              <select
-                value={form.cat1Id}
-                onChange={(e) => {
-                  set("cat1Id", e.target.value);
-                  set("cat2Id", "");
-                  set("cat3Id", "");
-                }}
-                className={
-                  errors.cat1Id
-                    ? `${inputErrCls} cursor-pointer appearance-none`
-                    : selectCls
-                }
-              >
-                <option value=""></option>
-                {cat1Options.map((c) => (
-                  <option key={c._id} value={c._id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-              <ChevronLeft className="absolute right-3 top-1/2 -translate-y-1/2 rotate-[-90deg] h-4 w-4 text-gray-400 pointer-events-none" />
-            </div>
+          <Field label="Images Alt Text">
+            <input
+              value={form.imagesAltText}
+              onChange={(e) => set("imagesAltText", e.target.value)}
+              placeholder="Enter gallery images alt text"
+              className={inputCls}
+            />
           </Field>
-          <Field label="Category 2L">
-            <div className="relative">
-              <select
-                value={form.cat2Id}
-                onChange={(e) => {
-                  set("cat2Id", e.target.value);
-                  set("cat3Id", "");
-                }}
-                disabled={!form.cat1Id || cat2Options.length === 0}
-                className={`${selectCls} disabled:opacity-50 disabled:cursor-not-allowed`}
-              >
-                <option value=""></option>
-                {cat2Options.map((c) => (
-                  <option key={c._id} value={c._id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-              <ChevronLeft className="absolute right-3 top-1/2 -translate-y-1/2 rotate-[-90deg] h-4 w-4 text-gray-400 pointer-events-none" />
-            </div>
-          </Field>
-
-          {/* Row 12 — Category 3L + Display Picture */}
-          <Field label="Category 3L">
-            <div className="relative">
-              <select
-                value={form.cat3Id}
-                onChange={(e) => set("cat3Id", e.target.value)}
-                disabled={!form.cat2Id || cat3Options.length === 0}
-                className={`${selectCls} disabled:opacity-50 disabled:cursor-not-allowed`}
-              >
-                <option value=""></option>
-                {cat3Options.map((c) => (
-                  <option key={c._id} value={c._id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-              <ChevronLeft className="absolute right-3 top-1/2 -translate-y-1/2 rotate-[-90deg] h-4 w-4 text-gray-400 pointer-events-none" />
-            </div>
-          </Field>
+          {/* Display Picture */}
           <Field label="Display Picture" required error={errors.displayImage}>
-            <div className="relative">
-              <select
-                value={displayImageIdx}
-                onChange={(e) => setDisplayImageIdx(Number(e.target.value))}
-                disabled={imageFiles.length === 0}
-                className={`${
-                  errors.displayImage ? inputErrCls : selectCls
-                } disabled:opacity-50 disabled:cursor-not-allowed`}
+            <Select
+              value={imageFiles.length === 0 ? undefined : String(displayImageIdx)}
+              onValueChange={(v) => setDisplayImageIdx(Number(v))}
+              disabled={imageFiles.length === 0}
+            >
+              <SelectTrigger
+                className={`w-full h-10 text-sm focus:ring-2 focus:ring-[#1a2b6b]/20 focus:border-[#1a2b6b] disabled:opacity-50 ${
+                  errors.displayImage ? "border-red-400" : "border-gray-300"
+                }`}
               >
-                {imageFiles.length === 0 ? (
-                  <option value="">Upload an image first...</option>
-                ) : (
-                  imageFiles.map((file, i) => (
-                    <option key={i} value={i}>
-                      Image {i + 1} ({file.name.substring(0, 20)})
-                      {i === displayImageIdx ? " (Main)" : ""}
-                    </option>
-                  ))
-                )}
-              </select>
-              <ChevronLeft className="absolute right-3 top-1/2 -translate-y-1/2 rotate-[-90deg] h-4 w-4 text-gray-400 pointer-events-none" />
-            </div>
+                <SelectValue placeholder="Upload an image first..." />
+              </SelectTrigger>
+              <SelectContent>
+                {imageFiles.map((file, i) => (
+                  <SelectItem key={i} value={String(i)}>
+                    Image {i + 1} ({file.name.substring(0, 20)})
+                    {i === displayImageIdx ? " (Main)" : ""}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </Field>
         </div>
       </div>

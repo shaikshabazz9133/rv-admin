@@ -88,6 +88,8 @@ interface FormState {
   taxNumber: string;
   logo: File | null;
   banner: File | null;
+  logoAltText: string;
+  bannerAltText: string;
 }
 
 type FormErrors = Partial<Record<keyof FormState, string>>;
@@ -105,6 +107,8 @@ const emptyForm: FormState = {
   taxNumber: "",
   logo: null,
   banner: null,
+  logoAltText: "",
+  bannerAltText: "",
 };
 
 function getToken(): string {
@@ -420,6 +424,8 @@ export default function SuppliersPage() {
       taxNumber: s.taxNumber ?? "",
       logo: null,
       banner: null,
+      logoAltText: (s as any).logoAltText ?? "",
+      bannerAltText: (s as any).bannerAltText ?? "",
     });
     setErrors({});
     setExistingLogo(s.logo ?? "");
@@ -462,6 +468,8 @@ export default function SuppliersPage() {
         if (form.logo) fd.append("logo", form.logo);
         if (form.banner) fd.append("banner", form.banner);
       }
+      if (form.logoAltText.trim()) fd.append("logoAltText", form.logoAltText.trim());
+      if (form.bannerAltText.trim()) fd.append("bannerAltText", form.bannerAltText.trim());
       const res = await fetch(`${API_BASE}/supplier`, {
         method: editingId ? "PATCH" : "POST",
         headers: {
@@ -923,20 +931,46 @@ export default function SuppliersPage() {
                   <p className="text-xs text-red-500">{errors.address}</p>
                 )}
               </div>
-              <FileField
-                label="Supplier Logo"
-                required
-                value={form.logo}
-                onChange={(f) => setField("logo", f)}
-                error={errors.logo}
-                existingUrl={existingLogo}
-              />
-              <FileField
-                label="Upload Banner Image"
-                value={form.banner}
-                onChange={(f) => setField("banner", f)}
-                existingUrl={existingBanner}
-              />
+              <div className="space-y-3">
+                <FileField
+                  label="Supplier Logo"
+                  required
+                  value={form.logo}
+                  onChange={(f) => setField("logo", f)}
+                  error={errors.logo}
+                  existingUrl={existingLogo}
+                />
+                <div className="space-y-1.5">
+                  <Label className="text-[13px] font-semibold text-[#1a2b6b]">
+                    Logo Alt Text
+                  </Label>
+                  <Input
+                    placeholder="Enter logo alt text"
+                    value={form.logoAltText}
+                    onChange={(e) => setField("logoAltText", e.target.value)}
+                    className="text-gray-900"
+                  />
+                </div>
+              </div>
+              <div className="space-y-3">
+                <FileField
+                  label="Upload Banner Image"
+                  value={form.banner}
+                  onChange={(f) => setField("banner", f)}
+                  existingUrl={existingBanner}
+                />
+                <div className="space-y-1.5">
+                  <Label className="text-[13px] font-semibold text-[#1a2b6b]">
+                    Banner Alt Text
+                  </Label>
+                  <Input
+                    placeholder="Enter banner alt text"
+                    value={form.bannerAltText}
+                    onChange={(e) => setField("bannerAltText", e.target.value)}
+                    className="text-gray-900"
+                  />
+                </div>
+              </div>
             </div>
           </div>
           <DialogFooter className="px-6 py-4 border-t bg-gray-50 rounded-b-2xl gap-2">

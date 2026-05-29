@@ -1,9 +1,10 @@
 ﻿"use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import ReactDOM from "react-dom";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Pencil, Trash2, X, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import { Plus, Pencil, Trash2, X, ChevronLeft, ChevronRight, Loader2, ChevronDown } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const API_BASE = "https://dev-backend.rvadventureaustralia.com.au/api";
@@ -16,6 +17,15 @@ function authHeaders(token: string) {
   return {
     authorization: `Bearer ${token}`,
     "x-app-client": "ADMIN_PANEL",
+    accept: "application/json",
+    "content-type": "application/json",
+  };
+}
+
+function ebayHeaders(token: string) {
+  return {
+    authorization: `Bearer ${token}`,
+    "x-app-client": "USER_PANEL",
     accept: "application/json",
     "content-type": "application/json",
   };
@@ -35,6 +45,11 @@ interface FulfillmentPolicy {
 }
 
 interface ShippingServiceItem {
+  id?: number;
+  carrier?: string;
+  service?: string;
+  name?: string;
+  category?: string;
   shippingCarrier?: string;
   shippingCarrierDescription?: string;
   shippingService?: string;
@@ -44,13 +59,41 @@ interface ShippingServiceItem {
   [key: string]: any;
 }
 
+function getServiceValue(svc: ShippingServiceItem): string {
+  const raw =
+    svc.service ??
+    svc.identifier ??
+    svc.shippingServiceCode ??
+    svc.shippingService ??
+    svc.value ??
+    svc.code ??
+    svc.shippingServiceDescription ??
+    svc.label ??
+    "";
+  return typeof raw === "string" ? raw : String(raw);
+}
+
+function deriveCarrierFromServiceText(serviceText: string): string {
+  const raw = (serviceText || "").trim();
+  if (!raw) return "";
+  const beforeType = raw.split("(")[0]?.trim();
+  const beforeDash = (beforeType || raw).split(" - ")[0]?.trim();
+  return beforeDash || "";
+}
+
 function buildServiceLabel(svc: ShippingServiceItem): string {
   if (svc.label) return svc.label;
-  const carrier = svc.shippingCarrierDescription || svc.shippingCarrier || "";
-  const type = svc.shippingServiceType ? `(${svc.shippingServiceType})` : "";
-  const desc = svc.shippingServiceDescription || svc.shippingService || "";
+  const carrier =
+    svc.carrier || svc.shippingCarrierDescription || svc.shippingCarrier || "";
+  const type = svc.category
+    ? `(${svc.category})`
+    : svc.shippingServiceType
+      ? `(${svc.shippingServiceType})`
+      : "";
+  const desc =
+    svc.name || svc.shippingServiceDescription || svc.shippingService || svc.service || "";
   if (carrier && desc) return `${carrier}${type} - ${desc}`;
-  return svc.shippingService || svc.label || String(Object.values(svc)[0]);
+  return svc.service || svc.shippingService || svc.label || String(Object.values(svc)[0]);
 }
 
 // ─── Shared UI ────────────────────────────────────────────────────────────────
@@ -61,6 +104,160 @@ const inputErrCls =
   "w-full h-10 px-3 border border-red-400 rounded-lg text-sm outline-none focus:ring-2 focus:ring-red-200 transition-colors bg-white";
 const selectCls =
   "w-full h-10 px-3 border border-gray-300 rounded-lg text-sm outline-none focus:ring-2 focus:ring-[#1a2b6b]/20 focus:border-[#1a2b6b] transition-colors bg-white";
+
+// ─── Custom Shipping Service Dropdown (portal-based) ─────────────────────────
+
+function ShippingServiceSelect({
+  services,
+  value,
+  onChange,
+  hasError,
+  fallbackLabel,
+}: {
+  services: ShippingServiceItem[];
+  value: string;
+  onChange: (v: string) => void;
+  hasError?: boolean;
+  fallbackLabel?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const [pos, setPos] = useState({ top: 0, left: 0, width: 0 });
+  const [mounted, setMounted] = useState(false);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => { setMounted(true); }, []);
+
+  const selectedLabel =
+    value === ""
+      ? "Select shipping service"
+      : (services.find((s) => getServiceValue(s) === value)
+          ? buildServiceLabel(services.find((s) => getServiceValue(s) === value)!)
+          : (fallbackLabel ?? value));
+
+  const filtered = search.trim()
+    ? services.filter((s) =>
+        buildServiceLabel(s).toLowerCase().includes(search.toLowerCase()),
+      )
+    : services;
+
+  const openDropdown = () => {
+    if (btnRef.current) {
+      const r = btnRef.current.getBoundingClientRect();
+      setPos({ top: r.bottom + 4, left: r.left, width: r.width });
+    }
+    setOpen(true);
+    setSearch("");
+  };
+
+  const closeDropdown = () => { setOpen(false); setSearch(""); };
+
+  useEffect(() => {
+    if (!open) return;
+    const t = setTimeout(() => searchRef.current?.focus(), 50);
+    function onMouseDown(e: MouseEvent) {
+      const target = e.target as Node;
+      if (
+        !btnRef.current?.contains(target) &&
+        !panelRef.current?.contains(target)
+      ) {
+        closeDropdown();
+      }
+    }
+    document.addEventListener("mousedown", onMouseDown);
+    return () => { clearTimeout(t); document.removeEventListener("mousedown", onMouseDown); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  const panel = open && mounted ? (
+    <div
+      ref={panelRef}
+      style={{ position: "fixed", top: pos.top, left: pos.left, width: pos.width, zIndex: 99999 }}
+      className="bg-white border border-gray-200 rounded-lg shadow-2xl overflow-hidden"
+    >
+      <div className="p-2 border-b border-gray-100">
+        <input
+          ref={searchRef}
+          type="text"
+          placeholder="Search services..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="w-full h-8 px-2.5 text-sm border border-gray-200 rounded-md outline-none focus:border-[#1a2b6b]"
+        />
+      </div>
+      <ul className="max-h-52 overflow-y-auto">
+        <li>
+          <button
+            type="button"
+            onMouseDown={(e) => { e.preventDefault(); onChange(""); closeDropdown(); }}
+            className={`w-full text-left px-3 py-2 text-sm transition-colors ${
+              value === "" ? "bg-[#1a2b6b]/5 text-[#1a2b6b] font-medium" : "text-gray-400 hover:bg-gray-50"
+            }`}
+          >
+            Select shipping service
+          </button>
+        </li>
+        {filtered.length === 0 ? (
+          <li className="px-3 py-4 text-center text-xs text-gray-400">No services found</li>
+        ) : (
+          filtered.map((svc, i) => {
+            const svcValue = getServiceValue(svc);
+            const label = buildServiceLabel(svc);
+            const key = svcValue || String(i);
+            const isSelected = svcValue === value;
+            return (
+              <li key={key}>
+                <button
+                  type="button"
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    onChange(svcValue);
+                    closeDropdown();
+                  }}
+                  className={`w-full text-left px-3 py-2 text-sm transition-colors leading-snug ${
+                    isSelected
+                      ? "bg-[#1a2b6b]/10 text-[#1a2b6b] font-semibold"
+                      : "text-gray-700 hover:bg-[#1a2b6b]/5"
+                  }`}
+                >
+                  {label}
+                </button>
+              </li>
+            );
+          })
+        )}
+      </ul>
+    </div>
+  ) : null;
+
+  return (
+    <div className="relative w-full">
+      <button
+        ref={btnRef}
+        type="button"
+        onClick={() => (open ? closeDropdown() : openDropdown())}
+        className={`w-full h-10 px-3 flex items-center justify-between rounded-lg text-sm border transition-colors bg-white ${
+          hasError
+            ? "border-red-400"
+            : open
+            ? "border-[#1a2b6b] ring-2 ring-[#1a2b6b]/20"
+            : "border-gray-300 hover:border-gray-400"
+        }`}
+      >
+        <span className={`truncate ${value === "" ? "text-gray-400" : "text-gray-900"}`}>
+          {selectedLabel}
+        </span>
+        <ChevronDown
+          className={`h-4 w-4 text-gray-400 shrink-0 ml-2 transition-transform ${open ? "rotate-180" : ""}`}
+        />
+      </button>
+      {mounted && panel ? ReactDOM.createPortal(panel, document.body) : null}
+    </div>
+  );
+}
+
 
 function Modal({
   title,
@@ -222,7 +419,7 @@ export default function FulfillmentPoliciesPage() {
     }
     setLoading(true);
     fetch(`${API_BASE}/ebay/fulfillment-policy/list`, {
-      headers: authHeaders(token),
+      headers: ebayHeaders(token),
     })
       .then((r) => {
         if (r.status === 401) {
@@ -247,7 +444,7 @@ export default function FulfillmentPoliciesPage() {
     const token = getToken();
     if (!token) return;
     fetch(`${API_BASE}/ebay/shipping-services`, {
-      headers: authHeaders(token),
+      headers: ebayHeaders(token),
     })
       .then((r) => {
         if (!r.ok) return;
@@ -300,11 +497,18 @@ export default function FulfillmentPoliciesPage() {
   };
 
   const handleServiceSelect = (svcCode: string) => {
-    const svc = shippingServices.find((s) => s.shippingService === svcCode);
+    const svc = shippingServices.find((s) => getServiceValue(s) === svcCode);
+    const serviceLabel = svc ? buildServiceLabel(svc) : svcCode;
+    const derivedCarrier = deriveCarrierFromServiceText(serviceLabel);
     setForm((f) => ({
       ...f,
       shippingService: svcCode,
-      shippingCarrier: svc?.shippingCarrier || svc?.shippingCarrierDescription || f.shippingCarrier,
+      shippingCarrier:
+        svc?.carrier ||
+        svc?.shippingCarrier ||
+        svc?.shippingCarrierDescription ||
+        derivedCarrier ||
+        f.shippingCarrier,
     }));
   };
 
@@ -312,6 +516,9 @@ export default function FulfillmentPoliciesPage() {
     const e: Record<string, string> = {};
     if (!form.name.trim()) e.name = "Name is required";
     if (!form.shippingService.trim()) e.shippingService = "Shipping service is required";
+    if (form.shippingService.trim() && !form.shippingCarrier.trim()) {
+      e.shippingService = "Please select a valid shipping service";
+    }
     if (!form.freeShipping && form.baseShippingCost < 0)
       e.baseShippingCost = "Base cost cannot be negative";
     if (!form.freeShipping && form.additionalShippingCost < 0)
@@ -321,18 +528,20 @@ export default function FulfillmentPoliciesPage() {
   };
 
   const buildPayload = () => {
+    const normalizedCarrier =
+      form.shippingCarrier.trim() ||
+      deriveCarrierFromServiceText(form.shippingService);
     const payload: Record<string, any> = {
-      name: form.name,
-      description: form.description,
+      name: form.name.trim(),
+      description: form.description.trim(),
       handlingTime: form.handlingTime,
-      shippingCarrier: form.shippingCarrier,
-      shippingService: form.shippingService,
+      shippingCarrier: normalizedCarrier,
+      shippingService: form.shippingService.trim(),
       freeShipping: form.freeShipping,
-      baseShippingCost: form.freeShipping ? 0 : form.baseShippingCost,
-      additionalShippingCost: form.freeShipping ? 0 : form.additionalShippingCost,
     };
-    if (!form.isEdit) {
-      payload.marketplaceId = "EBAY_AU";
+    if (!form.freeShipping) {
+      payload.baseShippingCost = form.baseShippingCost;
+      payload.additionalShippingCost = form.additionalShippingCost;
     }
     return payload;
   };
@@ -350,13 +559,13 @@ export default function FulfillmentPoliciesPage() {
       if (form.isEdit && form.id) {
         res = await fetch(`${API_BASE}/ebay/fulfillment-policy/${form.id}`, {
           method: "PATCH",
-          headers: authHeaders(token),
+          headers: ebayHeaders(token),
           body: JSON.stringify(buildPayload()),
         });
       } else {
         res = await fetch(`${API_BASE}/ebay/fulfillment-policy`, {
           method: "POST",
-          headers: authHeaders(token),
+          headers: ebayHeaders(token),
           body: JSON.stringify(buildPayload()),
         });
       }
@@ -396,7 +605,7 @@ export default function FulfillmentPoliciesPage() {
     try {
       const res = await fetch(`${API_BASE}/ebay/fulfillment-policy/${p.id}`, {
         method: "DELETE",
-        headers: authHeaders(token),
+        headers: ebayHeaders(token),
       });
       if (res.status === 401) {
         router.push("/");
@@ -622,32 +831,13 @@ export default function FulfillmentPoliciesPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">
                   Shipping Service <span className="text-red-500">*</span>
                 </label>
-                <select
+                <ShippingServiceSelect
+                  services={shippingServices}
                   value={form.shippingService}
-                  onChange={(e) => handleServiceSelect(e.target.value)}
-                  className={errors.shippingService ? inputErrCls : selectCls}
-                >
-                  <option value="">Select shipping service</option>
-                  {shippingServices.length > 0
-                    ? shippingServices.map((svc, i) => (
-                        <option
-                          key={svc.shippingService || i}
-                          value={svc.shippingService || ""}
-                        >
-                          {buildServiceLabel(svc)}
-                        </option>
-                      ))
-                    : form.shippingService
-                    ? [
-                        <option
-                          key={form.shippingService}
-                          value={form.shippingService}
-                        >
-                          {form.shippingService}
-                        </option>,
-                      ]
-                    : null}
-                </select>
+                  onChange={(v) => handleServiceSelect(v)}
+                  hasError={!!errors.shippingService}
+                  fallbackLabel={form.shippingService}
+                />
                 {errors.shippingService && (
                   <p className="text-xs text-red-500 mt-1">
                     {errors.shippingService}

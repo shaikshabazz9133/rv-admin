@@ -80,6 +80,14 @@ interface Category {
   expanded?: boolean;
 }
 
+interface FlatCategoryOption {
+  _id: string;
+  name: string;
+  level: number;
+  isActive: boolean;
+  parent?: { _id: string; name: string; level: number } | null;
+}
+
 // â”€â”€â”€ Category helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function updateCategoryTree(
@@ -114,10 +122,18 @@ function validateCategory(form: {
   name: string;
   level: string;
   displayPriority: string;
+  parentL1Id: string;
+  parentL2Id: string;
 }): Record<string, string> {
   const errors: Record<string, string> = {};
   if (!form.name.trim()) errors.name = "Category name is required";
   if (!form.level) errors.level = "Category level is required";
+  if (form.level === "L2" && !form.parentL1Id)
+    errors.parentL1Id = "Level 1 category is required";
+  if (form.level === "L3" && !form.parentL1Id)
+    errors.parentL1Id = "Level 1 category is required";
+  if (form.level === "L3" && !form.parentL2Id)
+    errors.parentL2Id = "Level 2 category is required";
   if (
     form.displayPriority &&
     (isNaN(Number(form.displayPriority)) || Number(form.displayPriority) < 0)
@@ -415,11 +431,15 @@ export default function ProductsPage() {
   const [deleteCategoryId, setDeleteCategoryId] = useState<string | null>(null);
   const [pauseCategoryData, setPauseCategoryData] = useState<{ _id: string; currentlyActive: boolean } | null>(null);
   const [savingCategory, setSavingCategory] = useState(false);
+  const [categoryOptions, setCategoryOptions] = useState<FlatCategoryOption[]>([]);
   const [categoryForm, setCategoryForm] = useState({
     name: "",
     level: "L1",
+    parentL1Id: "",
+    parentL2Id: "",
     tags: "",
     displayPriority: "0",
+    imageAltText: "",
     image: null as string | null,
     existingImage: null as string | null,
   });
@@ -533,6 +553,29 @@ export default function ProductsPage() {
     if (activeTab === "categories") loadCategories();
   }, [loadCategories, activeTab]);
 
+  const loadCategoryOptions = useCallback(async () => {
+    const token = getToken();
+    if (!token) {
+      router.push("/");
+      return [] as FlatCategoryOption[];
+    }
+    try {
+      const res = await fetch(`${API_BASE}/product/categories`, {
+        headers: authHeaders(token),
+      });
+      if (res.status === 401) {
+        router.push("/");
+        return [] as FlatCategoryOption[];
+      }
+      const json = await res.json();
+      const list: FlatCategoryOption[] = json.data?.list ?? [];
+      setCategoryOptions(list);
+      return list;
+    } catch {
+      return [] as FlatCategoryOption[];
+    }
+  }, [router]);
+
   // â”€â”€ Delete product
   const handleDeleteProduct = async () => {
     if (!deleteProductId) return;
@@ -608,7 +651,18 @@ export default function ProductsPage() {
   const openAddCategory = () => {
     setEditCategoryId(null);
     categoryImageFileRef.current = null;
-    setCategoryForm({ name: "", level: "L1", tags: "", displayPriority: "0", image: null, existingImage: null });
+    void loadCategoryOptions();
+    setCategoryForm({
+      name: "",
+      level: "L1",
+      parentL1Id: "",
+      parentL2Id: "",
+      tags: "",
+      displayPriority: "0",
+      imageAltText: "",
+      image: null,
+      existingImage: null,
+    });
     setCategoryErrors({});
     setShowAddCategory(true);
   };
@@ -616,7 +670,18 @@ export default function ProductsPage() {
   const openEditCategory = async (cat: Category) => {
     setEditCategoryId(cat._id);
     categoryImageFileRef.current = null;
-    setCategoryForm({ name: "", level: cat.level, tags: "", displayPriority: "0", image: null, existingImage: null });
+    const flatCats = await loadCategoryOptions();
+    setCategoryForm({
+      name: "",
+      level: cat.level,
+      parentL1Id: "",
+      parentL2Id: "",
+      tags: "",
+      displayPriority: "0",
+      imageAltText: "",
+      image: null,
+      existingImage: null,
+    });
     setCategoryErrors({});
     setShowAddCategory(true);
     try {
@@ -628,11 +693,25 @@ export default function ProductsPage() {
       const json = await res.json();
       const d = json.data;
       if (d) {
+        const levelNum = Number(d.level ?? 1);
+        let parentL1Id = "";
+        let parentL2Id = "";
+        if (levelNum === 2) {
+          parentL1Id = d.parent?._id ?? "";
+        }
+        if (levelNum === 3) {
+          parentL2Id = d.parent?._id ?? "";
+          const parentL2 = flatCats.find((c) => c._id === parentL2Id);
+          parentL1Id = parentL2?.parent?._id ?? "";
+        }
         setCategoryForm({
           name: d.name ?? "",
           level: d.level ? (`L${d.level}` as "L1" | "L2" | "L3") : cat.level,
+          parentL1Id,
+          parentL2Id,
           tags: (d.tags ?? []).join(", "),
           displayPriority: String(d.displayPriority ?? 0),
+          imageAltText: d.imageAltText ?? "",
           image: d.image ?? null,
           existingImage: d.image ?? null,
         });
@@ -650,10 +729,18 @@ export default function ProductsPage() {
     setSavingCategory(true);
     try {
       const levelNum = categoryForm.level === "L1" ? 1 : categoryForm.level === "L2" ? 2 : 3;
+      const parentId =
+        levelNum === 2
+          ? categoryForm.parentL1Id
+          : levelNum === 3
+          ? categoryForm.parentL2Id
+          : "";
       const fd = new FormData();
       fd.append("name", categoryForm.name);
       fd.append("level", String(levelNum));
       fd.append("displayPriority", categoryForm.displayPriority || "0");
+      fd.append("imageAltText", categoryForm.imageAltText.trim());
+      if (parentId) fd.append("parent", parentId);
       if (editCategoryId !== null) {
         fd.append("categoryId", editCategoryId);
         if (categoryImageFileRef.current) {
@@ -678,6 +765,7 @@ export default function ProductsPage() {
         if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.message || "Create failed"); }
         toast({ title: "Category added!" });
       }
+      setActiveTab("categories");
       setShowAddCategory(false);
       loadCategories();
     } catch (err: any) {
@@ -733,6 +821,17 @@ export default function ProductsPage() {
     reader.onload = (ev) => setCategoryForm((f) => ({ ...f, image: ev.target?.result as string }));
     reader.readAsDataURL(file);
   };
+
+  const l1CategoryOptions = categoryOptions.filter(
+    (c) => c.level === 1 && c.isActive && c._id !== editCategoryId,
+  );
+  const l2CategoryOptions = categoryOptions.filter(
+    (c) =>
+      c.level === 2 &&
+      c.isActive &&
+      c.parent?._id === categoryForm.parentL1Id &&
+      c._id !== editCategoryId,
+  );
 
   // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   // RENDER
@@ -841,7 +940,7 @@ export default function ProductsPage() {
                     <th className="text-left px-3 py-3 font-semibold text-gray-700 whitespace-nowrap hidden md:table-cell">
                       SKU Code
                     </th>
-                    <th className="text-left px-3 py-3 font-semibold text-[#1a2b6b] whitespace-nowrap hidden xl:table-cell">
+                    <th className="text-center px-3 py-3 font-semibold text-[#1a2b6b] whitespace-nowrap hidden xl:table-cell">
                       Available Quantity
                     </th>
                     <th className="text-left px-3 py-3 font-semibold text-[#1a2b6b] whitespace-nowrap hidden xl:table-cell">
@@ -890,14 +989,25 @@ export default function ProductsPage() {
                                 src={product.displayPic}
                                 alt={product.name}
                                 className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  (e.currentTarget as HTMLImageElement).src =
+                                    "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 80 80' fill='none'%3E%3Crect width='80' height='80' fill='%23e2e8f0'/%3E%3Ccircle cx='40' cy='30' r='14' fill='%2394a3b8'/%3E%3Cellipse cx='40' cy='68' rx='22' ry='14' fill='%2394a3b8'/%3E%3C/svg%3E";
+                                }}
                               />
                             ) : (
-                              <div className="w-5 h-5 bg-gray-300 rounded" />
+                              <img
+                                src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 80 80' fill='none'%3E%3Crect width='80' height='80' fill='%23e2e8f0'/%3E%3Ccircle cx='40' cy='30' r='14' fill='%2394a3b8'/%3E%3Cellipse cx='40' cy='68' rx='22' ry='14' fill='%2394a3b8'/%3E%3C/svg%3E"
+                                alt="No image"
+                                className="w-full h-full object-cover"
+                              />
                             )}
                           </div>
                         </td>
                         <td className="px-3 sm:px-4 py-3">
-                          <p className="font-medium text-gray-800 line-clamp-2 max-w-[200px] xl:max-w-xs">
+                          <p
+                            className="font-medium text-gray-800 truncate max-w-[150px] xl:max-w-[180px]"
+                            title={product.name}
+                          >
                             {product.name}
                           </p>
                         </td>
@@ -907,7 +1017,7 @@ export default function ProductsPage() {
                         <td className="px-3 py-3 text-gray-600 hidden md:table-cell">
                           {product.skuCode ?? "â€”"}
                         </td>
-                        <td className="px-3 py-3 text-gray-600 hidden xl:table-cell">
+                        <td className="px-3 py-3 text-gray-600 text-center hidden xl:table-cell">
                           {product.quantity ?? "â€”"}
                         </td>
                         <td className="px-3 py-3 text-gray-600 hidden xl:table-cell">
@@ -915,10 +1025,10 @@ export default function ProductsPage() {
                             ? `${product.weight} kg`
                             : "â€”"}
                         </td>
-                        <td className="px-3 py-3 text-gray-800 hidden lg:table-cell">
+                        <td className="px-3 py-3 text-gray-800 whitespace-nowrap hidden lg:table-cell">
                           {product.price != null ? `$ ${product.price}` : "â€”"}
                         </td>
-                        <td className="px-3 py-3 text-gray-800 hidden xl:table-cell">
+                        <td className="px-3 py-3 text-gray-800 whitespace-nowrap hidden xl:table-cell">
                           {product.offerPrice != null
                             ? `$ ${product.offerPrice}`
                             : "â€”"}
@@ -1167,9 +1277,20 @@ export default function ProductsPage() {
                     </Label>
                     <Select
                       value={categoryForm.level}
-                      onValueChange={(v) =>
-                        setCategoryForm((f) => ({ ...f, level: v }))
-                      }
+                      onValueChange={(v) => {
+                        setCategoryForm((f) => ({
+                          ...f,
+                          level: v,
+                          parentL1Id: "",
+                          parentL2Id: "",
+                        }));
+                        setCategoryErrors((err) => {
+                          const c = { ...err };
+                          delete c.parentL1Id;
+                          delete c.parentL2Id;
+                          return c;
+                        });
+                      }}
                     >
                       <SelectTrigger className="mt-1">
                         <SelectValue />
@@ -1181,6 +1302,74 @@ export default function ProductsPage() {
                       </SelectContent>
                     </Select>
                   </div>
+                  {(categoryForm.level === "L2" || categoryForm.level === "L3") && (
+                    <div>
+                      <Label className="text-[#1a2b6b] font-medium text-sm">
+                        Select Level 1 Category
+                      </Label>
+                      <Select
+                        key={`parent-l1-${categoryForm.level}`}
+                        value={categoryForm.parentL1Id}
+                        onValueChange={(v) => {
+                          setCategoryForm((f) => ({
+                            ...f,
+                            parentL1Id: v,
+                            parentL2Id: "",
+                          }));
+                          if (categoryErrors.parentL1Id)
+                            setCategoryErrors((err) => {
+                              const c = { ...err };
+                              delete c.parentL1Id;
+                              return c;
+                            });
+                        }}
+                      >
+                        <SelectTrigger className="mt-1">
+                          <SelectValue placeholder="Select Level 1 Category" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {l1CategoryOptions.map((cat) => (
+                            <SelectItem key={cat._id} value={cat._id}>
+                              {cat.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FieldError msg={categoryErrors.parentL1Id} />
+                    </div>
+                  )}
+                  {categoryForm.level === "L3" && (
+                    <div>
+                      <Label className="text-[#1a2b6b] font-medium text-sm">
+                        Select Level 2 Category
+                      </Label>
+                      <Select
+                        key={`parent-l2-${categoryForm.level}-${categoryForm.parentL1Id}`}
+                        value={categoryForm.parentL2Id}
+                        onValueChange={(v) => {
+                          setCategoryForm((f) => ({ ...f, parentL2Id: v }));
+                          if (categoryErrors.parentL2Id)
+                            setCategoryErrors((err) => {
+                              const c = { ...err };
+                              delete c.parentL2Id;
+                              return c;
+                            });
+                        }}
+                      >
+                        <SelectTrigger className="mt-1">
+                          <SelectValue placeholder="Select Level 2 Category" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {l2CategoryOptions.map((cat) => (
+                            <SelectItem key={cat._id} value={cat._id}>
+                              {cat.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FieldError msg={categoryErrors.parentL2Id} />
+                    </div>
+                  )}
                   <div className="sm:col-span-1">
                     <Label className="text-[#1a2b6b] font-medium text-sm">
                       Tags
@@ -1199,7 +1388,7 @@ export default function ProductsPage() {
                       Display Priority
                     </Label>
                     <Input
-                      className="mt-1"
+                      className="mt-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                       type="number"
                       min="0"
                       value={categoryForm.displayPriority}
@@ -1217,6 +1406,22 @@ export default function ProductsPage() {
                       }}
                     />
                     <FieldError msg={categoryErrors.displayPriority} />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <Label className="text-[#1a2b6b] font-medium text-sm">
+                      Image Alt Text
+                    </Label>
+                    <Input
+                      className="mt-1"
+                      placeholder="Enter image alt text"
+                      value={categoryForm.imageAltText}
+                      onChange={(e) =>
+                        setCategoryForm((f) => ({
+                          ...f,
+                          imageAltText: e.target.value,
+                        }))
+                      }
+                    />
                   </div>
                 </div>
               </div>
