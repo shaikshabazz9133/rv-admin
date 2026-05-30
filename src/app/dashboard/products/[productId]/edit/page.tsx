@@ -190,6 +190,7 @@ function RichTextEditor({
   initialValue?: string;
 }) {
   const ref = useRef<HTMLDivElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
   const initialSet = useRef(false);
 
   useEffect(() => {
@@ -204,6 +205,21 @@ function RichTextEditor({
     document.execCommand(cmd, false, val);
     onChange(ref.current?.innerHTML ?? "");
   };
+
+  const handleImagePick = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result;
+      if (typeof result === "string") {
+        exec("insertImage", result);
+      }
+    };
+    reader.readAsDataURL(file);
+    if (imageInputRef.current) imageInputRef.current.value = "";
+  };
+
   const Btn = ({
     children,
     cmd,
@@ -359,6 +375,36 @@ function RichTextEditor({
         </button>
         <button
           type="button"
+          title="Image"
+          onMouseDown={(e) => {
+            e.preventDefault();
+            imageInputRef.current?.click();
+          }}
+          className="w-7 h-7 flex items-center justify-center rounded text-gray-600 hover:bg-gray-200"
+        >
+          <svg
+            className="w-3.5 h-3.5"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+            />
+          </svg>
+        </button>
+        <input
+          ref={imageInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={handleImagePick}
+        />
+        <button
+          type="button"
           title="Font Color"
           onMouseDown={(e) => {
             e.preventDefault();
@@ -381,7 +427,7 @@ function RichTextEditor({
         ref={ref}
         contentEditable
         suppressContentEditableWarning
-        className="min-h-[160px] p-4 text-sm text-gray-700 outline-none [&:empty]:before:content-[attr(data-ph)] [&:empty]:before:text-gray-400"
+        className="rte-content min-h-[160px] p-4 text-sm text-gray-700 outline-none [&:empty]:before:content-[attr(data-ph)] [&:empty]:before:text-gray-400"
         data-ph={placeholder ?? "Enter content here..."}
         onInput={() => onChange(ref.current?.innerHTML ?? "")}
       />
@@ -1338,6 +1384,20 @@ export default function EditProductPage() {
   // ── Build FormData for PATCH
   const buildFormData = (status: "draft" | "active") => {
     const fd = new FormData();
+    const specifications = specRows
+      .map((row) => {
+        const key = (row[0] ?? "").trim();
+        const values = row
+          .slice(1)
+          .map((value, ci) => ({
+            column: `column-${ci + 1}`,
+            value: (value ?? "").trim(),
+          }))
+          .filter((item) => item.value !== "");
+        return key ? { key, values } : null;
+      })
+      .filter((item): item is { key: string; values: { column: string; value: string }[] } => !!item);
+
     fd.append("productId", productId);
     fd.append("name", form.name);
     fd.append("description", description);
@@ -1371,6 +1431,8 @@ export default function EditProductPage() {
     const displaySlot = images[displayIdx];
     if (displaySlot && !displaySlot.isExisting && displaySlot.file) {
       fd.append("displayPic", displaySlot.file, displaySlot.file.name);
+    } else if (displaySlot?.isExisting && displaySlot.url) {
+      fd.append("displayPic", displaySlot.url);
     }
 
     // New additional images
@@ -1386,6 +1448,7 @@ export default function EditProductPage() {
     // Accessories & related — comma-separated strings
     fd.append("accessories", selectedAccessories.join(","));
     fd.append("relatedProducts", selectedRelated.join(","));
+    fd.append("specifications", JSON.stringify(specifications));
 
     return fd;
   };

@@ -81,6 +81,22 @@ function RichTextEditor({
   placeholder?: string;
 }) {
   const ref = useRef<HTMLDivElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+
+  const handleImagePick = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result;
+      if (typeof result === "string") {
+        exec("insertImage", result);
+      }
+    };
+    reader.readAsDataURL(file);
+    if (imageInputRef.current) imageInputRef.current.value = "";
+  };
+
   const exec = (cmd: string, val?: string) => {
     ref.current?.focus();
     document.execCommand(cmd, false, val);
@@ -244,8 +260,7 @@ function RichTextEditor({
           title="Image"
           onMouseDown={(e) => {
             e.preventDefault();
-            const url = window.prompt("Enter image URL:");
-            if (url) exec("insertImage", url);
+            imageInputRef.current?.click();
           }}
           className="w-7 h-7 flex items-center justify-center rounded text-gray-600 hover:bg-gray-200"
         >
@@ -263,6 +278,13 @@ function RichTextEditor({
             />
           </svg>
         </button>
+        <input
+          ref={imageInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={handleImagePick}
+        />
         <div className="w-px h-5 bg-gray-200 mx-0.5" />
         <button
           type="button"
@@ -294,7 +316,7 @@ function RichTextEditor({
         ref={ref}
         contentEditable
         suppressContentEditableWarning
-        className="min-h-[160px] p-4 text-sm text-gray-700 outline-none [&:empty]:before:content-[attr(data-ph)] [&:empty]:before:text-gray-400"
+        className="rte-content min-h-[160px] p-4 text-sm text-gray-700 outline-none [&:empty]:before:content-[attr(data-ph)] [&:empty]:before:text-gray-400"
         data-ph={placeholder ?? "Enter content here..."}
         onInput={() => onChange(ref.current?.innerHTML ?? "")}
       />
@@ -1132,6 +1154,20 @@ export default function AddProductPage() {
   // ── Build multipart/form-data payload
   const buildFormData = (status: "draft" | "active") => {
     const fd = new FormData();
+    const specifications = specRows
+      .map((row) => {
+        const key = (row[0] ?? "").trim();
+        const values = row
+          .slice(1)
+          .map((value, ci) => ({
+            column: `column-${ci + 1}`,
+            value: (value ?? "").trim(),
+          }))
+          .filter((item) => item.value !== "");
+        return key ? { key, values } : null;
+      })
+      .filter((item): item is { key: string; values: { column: string; value: string }[] } => !!item);
+
     fd.append("name", form.name);
     fd.append("description", description);
     fd.append("weight", form.weight);
@@ -1170,6 +1206,7 @@ export default function AddProductPage() {
     // Accessories & related — sent as comma-separated strings
     fd.append("accessories", selectedAccessories.join(","));
     fd.append("relatedProducts", selectedRelated.join(","));
+    fd.append("specifications", JSON.stringify(specifications));
     return fd;
   };
 
