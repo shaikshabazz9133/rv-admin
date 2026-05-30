@@ -85,6 +85,100 @@ interface ImageSlot {
   isExisting: boolean;
 }
 
+function normalizeSpecRows(value: unknown): string[][] {
+  const toDisplayText = (cell: unknown): string => {
+    if (cell == null) return "";
+    if (typeof cell === "string" || typeof cell === "number" || typeof cell === "boolean") {
+      return String(cell);
+    }
+    if (Array.isArray(cell)) {
+      return cell.map((item) => toDisplayText(item)).filter(Boolean).join(", ");
+    }
+    if (typeof cell === "object") {
+      const obj = cell as Record<string, unknown>;
+      const preferredKeys = ["value", "name", "label", "title", "text", "description"];
+      for (const key of preferredKeys) {
+        if (key in obj) {
+          const text = toDisplayText(obj[key]);
+          if (text) return text;
+        }
+      }
+      const firstUseful = Object.entries(obj).find(([k, v]) => {
+        if (v == null) return false;
+        return !/^_?id$|createdAt|updatedAt|insertedAt|deletedAt|__v$/i.test(k);
+      });
+      return firstUseful ? toDisplayText(firstUseful[1]) : "";
+    }
+    return "";
+  };
+
+  const rowFromObject = (row: Record<string, unknown>): string[] => {
+    if (Array.isArray(row.values)) {
+      const keyText = toDisplayText(
+        row.key ?? row.name ?? row.label ?? row.title ?? row.specification ?? row.spec ?? row.attribute,
+      );
+      const values = row.values
+        .map((item) => {
+          if (!item || typeof item !== "object") {
+            return { column: "", text: toDisplayText(item) };
+          }
+          const obj = item as Record<string, unknown>;
+          return {
+            column: typeof obj.column === "string" ? obj.column : "",
+            text: toDisplayText(
+              obj.value ?? obj.name ?? obj.label ?? obj.title ?? obj.text ?? obj.description,
+            ),
+          };
+        })
+        .sort((a, b) => {
+          const aNum = Number((a.column.match(/\d+/)?.[0] ?? "0"));
+          const bNum = Number((b.column.match(/\d+/)?.[0] ?? "0"));
+          return aNum - bNum;
+        })
+        .map((v) => v.text);
+
+      return [keyText, ...values];
+    }
+
+    const keyCandidate =
+      row.key ?? row.name ?? row.label ?? row.title ?? row.specification ?? row.spec ?? row.attribute;
+    const valueCandidate = row.value ?? row.text ?? row.description ?? row.content;
+
+    const keyText = toDisplayText(keyCandidate);
+    const valueText = toDisplayText(valueCandidate);
+    if (keyText || valueText) {
+      return [keyText, valueText];
+    }
+
+    return Object.entries(row)
+      .filter(([k]) => !/^_?id$|createdAt|updatedAt|insertedAt|deletedAt|__v$/i.test(k))
+      .map(([, v]) => toDisplayText(v))
+      .filter((cell) => cell !== "");
+  };
+
+  if (!Array.isArray(value) || value.length === 0) return [[""]];
+
+  const normalized = value
+    .map((row) => {
+      if (Array.isArray(row)) {
+        return row.map((cell) => toDisplayText(cell));
+      }
+      if (row && typeof row === "object") {
+        return rowFromObject(row as Record<string, unknown>);
+      }
+      return [toDisplayText(row)];
+    })
+    .filter((row) => row.length > 0);
+
+  if (normalized.length === 0) return [[""]];
+
+  const width = Math.max(1, ...normalized.map((row) => row.length));
+  return normalized.map((row) => [
+    ...row,
+    ...Array(width - row.length).fill(""),
+  ]);
+}
+
 // ─── Rich Text Editor ─────────────────────────────────────────────────────────
 function RichTextEditor({
   onChange,
@@ -837,20 +931,28 @@ function SpecificationsTab({
   rows: string[][];
   setRows: React.Dispatch<React.SetStateAction<string[][]>>;
 }) {
-  const cols = rows[0]?.length ?? 1;
+  const safeRows = normalizeSpecRows(rows);
+  const cols = safeRows[0]?.length ?? 1;
   const addRow = () =>
-    setRows((prev) => [...prev, Array(prev[0]?.length ?? 1).fill("")]);
-  const addCol = () => setRows((prev) => prev.map((r) => [...r, ""]));
+    setRows((prev) => {
+      const matrix = normalizeSpecRows(prev);
+      return [...matrix, Array(matrix[0]?.length ?? 1).fill("")];
+    });
+  const addCol = () =>
+    setRows((prev) => normalizeSpecRows(prev).map((r) => [...r, ""]));
   const delRow = (ri: number) => {
-    if (rows.length > 1) setRows((prev) => prev.filter((_, i) => i !== ri));
+    if (safeRows.length > 1)
+      setRows((prev) => normalizeSpecRows(prev).filter((_, i) => i !== ri));
   };
   const delCol = (ci: number) => {
     if (cols > 1)
-      setRows((prev) => prev.map((r) => r.filter((_, i) => i !== ci)));
+      setRows((prev) =>
+        normalizeSpecRows(prev).map((r) => r.filter((_, i) => i !== ci)),
+      );
   };
   const update = (ri: number, ci: number, v: string) =>
     setRows((prev) => {
-      const n = prev.map((r) => [...r]);
+      const n = normalizeSpecRows(prev).map((r) => [...r]);
       n[ri][ci] = v;
       return n;
     });
@@ -892,7 +994,7 @@ function SpecificationsTab({
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {rows.map((row, ri) => (
+            {safeRows.map((row, ri) => (
               <tr key={ri} className="hover:bg-gray-50">
                 {row.map((cell, ci) => (
                   <td key={ci} className="px-2 py-2">
@@ -1078,9 +1180,7 @@ export default function EditProductPage() {
         setEbayDescription(p.ebayDescription ?? "");
 
         // Specifications
-        if (Array.isArray(p.specifications) && p.specifications.length > 0) {
-          setSpecRows(p.specifications);
-        }
+        setSpecRows(normalizeSpecRows(p.specifications));
 
         // Related/accessories/reviews
         setSelectedRelated(
