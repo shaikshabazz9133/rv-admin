@@ -217,6 +217,21 @@ export default function BlogsPage() {
 
   const descRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const descImgInputRef = useRef<HTMLInputElement>(null);
+  const editorWrapRef = useRef<HTMLDivElement>(null);
+  const selectedImgRef = useRef<HTMLImageElement | null>(null);
+  const resizeRef = useRef<{
+    startX: number;
+    startW: number;
+    img: HTMLImageElement;
+  } | null>(null);
+  // Bounding box of the currently selected description image (relative to editor)
+  const [imgBox, setImgBox] = useState<{
+    top: number;
+    left: number;
+    width: number;
+    height: number;
+  } | null>(null);
 
   // ── Auth ──
   const getToken = useCallback(() => {
@@ -357,13 +372,16 @@ export default function BlogsPage() {
   // Set editor content when form view opens
   useEffect(() => {
     if (!descRef.current) return;
+    setImgBox(null);
+    selectedImgRef.current = null;
     if (view === "add") {
       descRef.current.innerHTML = "";
       setEditorHasContent(false);
     } else if (view === "edit" && editBlog) {
-      descRef.current.innerHTML = editBlog.description ?? "";
+      const desc = editBlog.description ?? "";
+      descRef.current.innerHTML = desc;
       setEditorHasContent(
-        (editBlog.description ?? "").replace(/<[^>]*>/g, "").trim().length > 0,
+        /<img/i.test(desc) || desc.replace(/<[^>]*>/g, "").trim().length > 0,
       );
     }
   }, [view, editBlog]);
@@ -633,6 +651,84 @@ export default function BlogsPage() {
     document.execCommand(cmd, false, value);
   };
 
+  // Insert an image into the description editor (inline, like product description)
+  const handleDescImagePick = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result;
+      if (typeof result === "string") {
+        execCmd(
+          "insertHTML",
+          `<img src="${result}" alt="" style="max-width:100%;height:auto;border-radius:6px;margin:6px 0;" />`,
+        );
+        setEditorHasContent(true);
+      }
+    };
+    reader.readAsDataURL(file);
+    if (descImgInputRef.current) descImgInputRef.current.value = "";
+  };
+
+  // ── Image resize (click an image, then drag the corner handle) ──
+  const syncImgBox = (img: HTMLImageElement) => {
+    const wrap = editorWrapRef.current;
+    if (!wrap) return;
+    const wr = wrap.getBoundingClientRect();
+    const ir = img.getBoundingClientRect();
+    setImgBox({
+      top: ir.top - wr.top,
+      left: ir.left - wr.left,
+      width: ir.width,
+      height: ir.height,
+    });
+  };
+
+  const clearImgSelection = () => {
+    selectedImgRef.current = null;
+    setImgBox(null);
+  };
+
+  const handleEditorClick = (e: React.MouseEvent) => {
+    const target = e.target as HTMLElement;
+    if (target.tagName === "IMG") {
+      const img = target as HTMLImageElement;
+      selectedImgRef.current = img;
+      syncImgBox(img);
+    } else {
+      clearImgSelection();
+    }
+  };
+
+  const startResize = (e: React.PointerEvent) => {
+    const img = selectedImgRef.current;
+    if (!img) return;
+    e.preventDefault();
+    e.stopPropagation();
+    resizeRef.current = {
+      startX: e.clientX,
+      startW: img.getBoundingClientRect().width,
+      img,
+    };
+    (e.currentTarget as Element).setPointerCapture(e.pointerId);
+  };
+
+  const moveResize = (e: React.PointerEvent) => {
+    const r = resizeRef.current;
+    if (!r) return;
+    const maxW = (editorWrapRef.current?.clientWidth ?? 9999) - 24;
+    const w = Math.max(40, Math.min(r.startW + (e.clientX - r.startX), maxW));
+    r.img.style.width = `${Math.round(w)}px`;
+    r.img.style.height = "auto";
+    syncImgBox(r.img);
+  };
+
+  const endResize = (e: React.PointerEvent) => {
+    if (!resizeRef.current) return;
+    resizeRef.current = null;
+    (e.currentTarget as Element).releasePointerCapture?.(e.pointerId);
+  };
+
   // ── Month options ──
   const currentMonthIndex = new Date().getMonth();
   const monthOptions = [
@@ -893,6 +989,25 @@ export default function BlogsPage() {
                       type="button"
                       onMouseDown={(e) => {
                         e.preventDefault();
+                        descImgInputRef.current?.click();
+                      }}
+                      title="Insert Image"
+                      className="w-7 h-7 rounded flex items-center justify-center text-gray-600 hover:bg-gray-100 transition-colors"
+                    >
+                      <ImagePlus className="h-3.5 w-3.5" />
+                    </button>
+                    <input
+                      ref={descImgInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleDescImagePick}
+                    />
+                    <div className="w-px h-4 bg-gray-200 mx-1" />
+                    <button
+                      type="button"
+                      onMouseDown={(e) => {
+                        e.preventDefault();
                         execCmd("removeFormat");
                       }}
                       title="Clear Formatting"
@@ -902,24 +1017,46 @@ export default function BlogsPage() {
                     </button>
                   </div>
                   {/* Editor area */}
-                  <div className="relative">
+                  <div ref={editorWrapRef} className="relative">
                     <div
                       ref={descRef}
                       contentEditable
                       suppressContentEditableWarning
                       className="min-h-[220px] p-3 text-sm text-gray-800 outline-none"
-                      onInput={(e) =>
+                      onClick={handleEditorClick}
+                      onInput={(e) => {
+                        clearImgSelection();
+                        const el = e.currentTarget;
                         setEditorHasContent(
-                          e.currentTarget.innerHTML
-                            .replace(/<[^>]*>/g, "")
-                            .trim().length > 0,
-                        )
-                      }
+                          el.querySelector("img") !== null ||
+                            el.innerHTML.replace(/<[^>]*>/g, "").trim().length >
+                              0,
+                        );
+                      }}
                     />
                     {!editorHasContent && (
                       <p className="absolute top-3 left-3 text-sm text-gray-400 pointer-events-none select-none">
                         Write blog content...
                       </p>
+                    )}
+                    {imgBox && (
+                      <div
+                        className="absolute border-2 border-[#1a2b6b] rounded pointer-events-none"
+                        style={{
+                          top: imgBox.top,
+                          left: imgBox.left,
+                          width: imgBox.width,
+                          height: imgBox.height,
+                        }}
+                      >
+                        <div
+                          onPointerDown={startResize}
+                          onPointerMove={moveResize}
+                          onPointerUp={endResize}
+                          title="Drag to resize"
+                          className="pointer-events-auto absolute -bottom-1.5 -right-1.5 w-3.5 h-3.5 bg-[#1a2b6b] border-2 border-white rounded-sm cursor-nwse-resize shadow"
+                        />
+                      </div>
                     )}
                   </div>
                 </div>

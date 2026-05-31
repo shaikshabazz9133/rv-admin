@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
@@ -16,7 +17,6 @@ import {
   Truck,
   ChevronLeft,
   ChevronRight,
-  Tent,
   Globe,
   Loader2,
   BookOpen,
@@ -61,28 +61,50 @@ export function Sidebar({ collapsed, onToggle, onNavigate }: SidebarProps) {
       className="relative flex h-screen flex-col bg-[hsl(220_60%_12%)] text-white z-30 flex-shrink-0"
     >
       {/* Logo */}
-      <div className="flex h-16 items-center border-b border-white/10 px-4">
-        <div className="flex items-center gap-3 min-w-0">
-          <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-orange-500 shadow-lg shadow-orange-500/30">
-            <Tent className="h-5 w-5 text-white" />
-          </div>
-          <AnimatePresence>
-            {!collapsed && (
-              <motion.div
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -10 }}
-                transition={{ duration: 0.2 }}
-                className="min-w-0"
-              >
-                <p className="text-sm font-bold leading-tight text-white truncate">
-                  RV Adventure
-                </p>
-                <p className="text-xs text-white/50 truncate">Australia</p>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
+      <div
+        className={cn(
+          "flex h-16 items-center justify-center border-b border-white/10 px-2",
+        )}
+      >
+        <AnimatePresence mode="wait">
+          {collapsed ? (
+            <motion.div
+              key="collapsed-logo"
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              transition={{ duration: 0.2 }}
+              className="relative h-11 w-11 overflow-hidden rounded-md bg-white/95 p-0 shadow-sm ring-1 ring-black/5"
+            >
+              <Image
+                src="/logo_png.png"
+                alt="RV Adventure Australia"
+                fill
+                sizes="44px"
+                className="object-cover object-[18%_50%] scale-[2.6]"
+                priority
+              />
+            </motion.div>
+          ) : (
+            <motion.div
+              key="expanded-logo"
+              initial={{ opacity: 0, x: -10 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -10 }}
+              transition={{ duration: 0.2 }}
+              className="relative h-12 w-[184px] overflow-hidden rounded-md bg-white/95 p-0.5 shadow-sm ring-1 ring-black/5"
+            >
+              <Image
+                src="/logo_png.png"
+                alt="RV Adventure Australia"
+                fill
+                sizes="184px"
+                className="object-contain object-center scale-[1.24] brightness-110 contrast-125 saturate-125"
+                priority
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       {/* Nav */}

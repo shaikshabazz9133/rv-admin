@@ -16,6 +16,10 @@ import {
   Clock,
   Truck,
   Ban,
+  ShoppingBag,
+  Info,
+  MapPin,
+  PieChart,
 } from "lucide-react";
 import Image from "next/image";
 import { useToast } from "@/hooks/use-toast";
@@ -85,6 +89,8 @@ interface HistoryEntry {
   status: string;
   _id: string;
   insertedAt: number;
+  courierName?: string;
+  trackingId?: string;
 }
 
 interface RemarkEntry {
@@ -113,6 +119,8 @@ interface OrderDetail {
   status: string;
   paymentStatus: string;
   remarks: RemarkEntry[];
+  courierName?: string;
+  trackingId?: string;
   insertedAt: number;
   updatedAt: number;
 }
@@ -208,14 +216,17 @@ function StatusBadge({ status }: { status: string }) {
 // ─── Section Card ───────────────────────────────────────────────────────────────
 function SectionCard({
   title,
+  icon,
   children,
 }: {
   title: string;
+  icon?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-      <div className="px-5 py-3.5 border-b border-gray-100 bg-gray-50/60">
+      <div className="flex items-center gap-2 px-5 py-3.5 border-b border-gray-100">
+        {icon && <span className="text-[#1a2b6b]">{icon}</span>}
         <h3 className="text-sm font-semibold text-[#1a2b6b]">{title}</h3>
       </div>
       <div className="p-5">{children}</div>
@@ -237,15 +248,26 @@ function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
 
 // ─── Order Timeline ────────────────────────────────────────────────────────────
 type TEntry =
-  | { kind: "status"; _id: string; status: string; insertedAt: number }
+  | {
+      kind: "status";
+      _id: string;
+      status: string;
+      insertedAt: number;
+      courierName?: string;
+      trackingId?: string;
+    }
   | { kind: "remark"; _id: string; message: string; insertedAt: number };
 
 function OrderTimeline({
   history,
   remarks,
+  courierName,
+  trackingId,
 }: {
   history: HistoryEntry[];
   remarks: RemarkEntry[];
+  courierName?: string;
+  trackingId?: string;
 }) {
   const entries: TEntry[] = [
     ...history.map((h) => ({
@@ -253,6 +275,9 @@ function OrderTimeline({
       _id: h._id,
       status: h.status,
       insertedAt: h.insertedAt,
+      // Prefer courier/tracking stored on the history entry; fall back to order-level
+      courierName: h.courierName ?? courierName,
+      trackingId: h.trackingId ?? trackingId,
     })),
     ...remarks.map((r) => ({
       kind: "remark" as const,
@@ -293,6 +318,27 @@ function OrderTimeline({
                 <p className={`text-sm font-semibold mt-0.5 ${cfg.text}`}>
                   Order status changed to {entry.status}
                 </p>
+                {entry.status === "Dispatched" &&
+                  (entry.courierName || entry.trackingId) && (
+                    <div className="mt-2 rounded-lg border border-gray-100 bg-gray-50 px-3 py-2 space-y-1">
+                      {entry.courierName && (
+                        <p className="text-xs text-gray-500">
+                          Courier:{" "}
+                          <span className="font-semibold text-gray-700">
+                            {entry.courierName}
+                          </span>
+                        </p>
+                      )}
+                      {entry.trackingId && (
+                        <p className="text-xs text-gray-500">
+                          Tracking ID:{" "}
+                          <span className="font-mono font-semibold text-gray-700">
+                            {entry.trackingId}
+                          </span>
+                        </p>
+                      )}
+                    </div>
+                  )}
               </div>
             </div>
           );
@@ -868,8 +914,7 @@ export default function OrderDetailPage() {
     }
   };
 
-  const canViewInvoice =
-    order && order.status !== "Pending" && order.status !== "Processing";
+  const canViewInvoice = order && order.status !== "Pending";
 
   if (loading) {
     return (
@@ -901,84 +946,75 @@ export default function OrderDetailPage() {
       animate={{ opacity: 1, y: 0 }}
       className="p-4 sm:p-6 space-y-5 max-w-7xl mx-auto"
     >
-      {/* ── Header ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => router.push("/dashboard/orders")}
-            className="flex items-center justify-center w-9 h-9 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 hover:border-[#1a2b6b] text-gray-500 hover:text-[#1a2b6b] transition-all shadow-sm"
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </button>
-          <div>
-            <h1 className="text-lg sm:text-xl font-bold text-[#1a2b6b]">
-              Order #{order.orderId}
-            </h1>
-            <p className="text-xs text-gray-400 mt-0.5">
-              Placed on {formatDate(order.insertedAt)}
-            </p>
-          </div>
+      {/* ── Header (title left, actions right) ── */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="shrink-0">
+          <h1 className="text-lg sm:text-xl font-bold text-[#1a2b6b]">
+            Order #{order.orderId}
+          </h1>
+          <p className="text-xs text-gray-400 mt-0.5">
+            Placed on {formatDate(order.insertedAt)}
+          </p>
         </div>
-        <StatusBadge status={order.status} />
-      </div>
 
-      {/* ── Action Buttons ── */}
-      <div className="flex flex-wrap gap-2">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => router.push("/dashboard/orders")}
-          className="gap-1.5 text-gray-600 hover:text-[#1a2b6b] hover:border-[#1a2b6b]"
-        >
-          <ArrowLeft className="h-3.5 w-3.5" />
-          Back to Orders
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setShowNotes(true)}
-          className="gap-1.5 text-gray-600 hover:text-[#1a2b6b] hover:border-[#1a2b6b]"
-        >
-          <StickyNote className="h-3.5 w-3.5" />
-          Add Notes
-        </Button>
-        {canViewInvoice && (
+        <div className="flex flex-wrap items-center gap-2">
           <Button
             variant="outline"
             size="sm"
-            onClick={handleViewInvoice}
-            disabled={invoiceLoading}
+            onClick={() => router.push("/dashboard/orders")}
             className="gap-1.5 text-gray-600 hover:text-[#1a2b6b] hover:border-[#1a2b6b]"
           >
-            {invoiceLoading ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <FileText className="h-3.5 w-3.5" />
-            )}
-            View Invoice
+            <ArrowLeft className="h-3.5 w-3.5" />
+            Back to Orders
           </Button>
-        )}
-        {order.status !== "Cancelled" && order.status !== "Delivered" && (
           <Button
+            variant="outline"
             size="sm"
-            onClick={() => setShowUpdateStatus(true)}
-            className="gap-1.5 bg-[#1a2b6b] hover:bg-[#162255] text-white"
+            onClick={() => setShowNotes(true)}
+            className="gap-1.5 bg-[#b9b9b9] text-black"
           >
-            <RefreshCw className="h-3.5 w-3.5" />
-            Update Status
+            <StickyNote className="h-3.5 w-3.5" />
+            Add Notes
           </Button>
-        )}
-        {order.status !== "Cancelled" && (
-          <Button
-            size="sm"
-            variant="destructive"
-            onClick={() => setShowCancelOrder(true)}
-            className="gap-1.5"
-          >
-            <XCircle className="h-3.5 w-3.5" />
-            Cancel Order
-          </Button>
-        )}
+          {canViewInvoice && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleViewInvoice}
+              disabled={invoiceLoading}
+              className="gap-1.5 bg-[#b9b9b9] text-black"
+            >
+              {invoiceLoading ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <FileText className="h-3.5 w-3.5" />
+              )}
+              View Invoice
+            </Button>
+          )}
+          {order.status !== "Cancelled" && order.status !== "Delivered" && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowUpdateStatus(true)}
+              className="gap-1.5 bg-[#b9b9b9] text-black"
+            >
+              <RefreshCw className="h-3.5 w-3.5" />
+              Update Status
+            </Button>
+          )}
+          {order.status !== "Cancelled" && (
+            <Button
+              size="sm"
+              variant="destructive"
+              onClick={() => setShowCancelOrder(true)}
+              className="gap-1.5"
+            >
+              <XCircle className="h-3.5 w-3.5" />
+              Cancel Order
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* ── Main Grid ── */}
@@ -986,7 +1022,10 @@ export default function OrderDetailPage() {
         {/* Left column */}
         <div className="xl:col-span-2 space-y-5">
           {/* Products */}
-          <SectionCard title="Products">
+          <SectionCard
+            title="Products"
+            icon={<ShoppingBag className="w-4 h-4" />}
+          >
             <div className="space-y-4">
               {order.products.map((item) => (
                 <div
@@ -1050,7 +1089,10 @@ export default function OrderDetailPage() {
           </SectionCard>
 
           {/* Order Info */}
-          <SectionCard title="Order Information">
+          <SectionCard
+            title="Order Information"
+            icon={<Info className="w-4 h-4" />}
+          >
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <InfoRow
                 label="Order ID"
@@ -1100,7 +1142,10 @@ export default function OrderDetailPage() {
 
           {/* Addresses */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-            <SectionCard title="Billing Address">
+            <SectionCard
+              title="Billing Address"
+              icon={<MapPin className="w-4 h-4" />}
+            >
               <div className="space-y-1">
                 <p className="text-sm font-semibold text-gray-800">
                   {order.billingAddress.name}
@@ -1124,7 +1169,10 @@ export default function OrderDetailPage() {
                 </p>
               </div>
             </SectionCard>
-            <SectionCard title="Shipping Address">
+            <SectionCard
+              title="Shipping Address"
+              icon={<Truck className="w-4 h-4" />}
+            >
               <div className="space-y-1">
                 <p className="text-sm font-semibold text-gray-800">
                   {order.shippingAddress.name}
@@ -1154,7 +1202,10 @@ export default function OrderDetailPage() {
         {/* Right column */}
         <div className="space-y-5">
           {/* Price Summary */}
-          <SectionCard title="Price Summary">
+          <SectionCard
+            title="Price Summary"
+            icon={<PieChart className="w-4 h-4" />}
+          >
             <div className="space-y-3">
               <div className="flex items-center justify-between text-sm">
                 <span className="text-gray-500">Products Total</span>
@@ -1200,8 +1251,16 @@ export default function OrderDetailPage() {
           </SectionCard>
 
           {/* Order Timeline */}
-          <SectionCard title="Order Timeline">
-            <OrderTimeline history={order.history} remarks={order.remarks} />
+          <SectionCard
+            title="Order Timeline"
+            icon={<Clock className="w-4 h-4" />}
+          >
+            <OrderTimeline
+              history={order.history}
+              remarks={order.remarks}
+              courierName={order.courierName}
+              trackingId={order.trackingId}
+            />
           </SectionCard>
         </div>
       </div>

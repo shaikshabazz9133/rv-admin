@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Bold,
@@ -124,13 +124,76 @@ function ToolbarButton({
 // --- Color Palette ---
 
 const COLOR_PALETTE = [
-  ["#000000","#434343","#666666","#999999","#b7b7b7","#cccccc","#d9d9d9","#ffffff"],
-  ["#ff0000","#ff4500","#ff9900","#ffff00","#00ff00","#00ffff","#4a86e8","#9900ff"],
-  ["#f4cccc","#fce5cd","#fff2cc","#d9ead3","#d0e0e3","#c9daf8","#cfe2f3","#d9d2e9"],
-  ["#ea9999","#f9cb9c","#ffe599","#b6d7a8","#a2c4c9","#a4c2f4","#9fc5e8","#b4a7d6"],
-  ["#e06666","#f6b26b","#ffd966","#93c47d","#76a5af","#6d9eeb","#6fa8dc","#8e7cc3"],
-  ["#cc0000","#e69138","#f1c232","#6aa84f","#45818e","#3c78d8","#3d85c8","#674ea7"],
-  ["#990000","#b45f06","#bf9000","#38761d","#134f5c","#1155cc","#0b5394","#351c75"],
+  [
+    "#000000",
+    "#434343",
+    "#666666",
+    "#999999",
+    "#b7b7b7",
+    "#cccccc",
+    "#d9d9d9",
+    "#ffffff",
+  ],
+  [
+    "#ff0000",
+    "#ff4500",
+    "#ff9900",
+    "#ffff00",
+    "#00ff00",
+    "#00ffff",
+    "#4a86e8",
+    "#9900ff",
+  ],
+  [
+    "#f4cccc",
+    "#fce5cd",
+    "#fff2cc",
+    "#d9ead3",
+    "#d0e0e3",
+    "#c9daf8",
+    "#cfe2f3",
+    "#d9d2e9",
+  ],
+  [
+    "#ea9999",
+    "#f9cb9c",
+    "#ffe599",
+    "#b6d7a8",
+    "#a2c4c9",
+    "#a4c2f4",
+    "#9fc5e8",
+    "#b4a7d6",
+  ],
+  [
+    "#e06666",
+    "#f6b26b",
+    "#ffd966",
+    "#93c47d",
+    "#76a5af",
+    "#6d9eeb",
+    "#6fa8dc",
+    "#8e7cc3",
+  ],
+  [
+    "#cc0000",
+    "#e69138",
+    "#f1c232",
+    "#6aa84f",
+    "#45818e",
+    "#3c78d8",
+    "#3d85c8",
+    "#674ea7",
+  ],
+  [
+    "#990000",
+    "#b45f06",
+    "#bf9000",
+    "#38761d",
+    "#134f5c",
+    "#1155cc",
+    "#0b5394",
+    "#351c75",
+  ],
 ];
 
 // --- Rich Text Editor ---
@@ -187,7 +250,10 @@ function RichTextEditor({
   // Close color picker on outside click
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (colorBtnRef.current && !colorBtnRef.current.contains(e.target as Node)) {
+      if (
+        colorBtnRef.current &&
+        !colorBtnRef.current.contains(e.target as Node)
+      ) {
         setShowColorPicker(false);
       }
     };
@@ -266,12 +332,22 @@ function RichTextEditor({
             }}
             className="flex h-8 w-8 flex-col items-center justify-center rounded-md text-gray-600 hover:bg-gray-100 transition-colors gap-0.5"
           >
-            <span className="text-xs font-bold leading-none" style={{ color: activeColor }}>A</span>
-            <span className="w-4 h-1 rounded-sm" style={{ backgroundColor: activeColor }} />
+            <span
+              className="text-xs font-bold leading-none"
+              style={{ color: activeColor }}
+            >
+              A
+            </span>
+            <span
+              className="w-4 h-1 rounded-sm"
+              style={{ backgroundColor: activeColor }}
+            />
           </button>
           {showColorPicker && (
             <div className="absolute top-9 left-0 z-50 bg-white border border-gray-200 rounded-xl shadow-lg p-2">
-              <p className="text-xs text-gray-400 mb-1.5 font-medium px-0.5">Text Color</p>
+              <p className="text-xs text-gray-400 mb-1.5 font-medium px-0.5">
+                Text Color
+              </p>
               {COLOR_PALETTE.map((row, ri) => (
                 <div key={ri} className="flex gap-1 mb-1">
                   {row.map((color) => (
@@ -327,8 +403,10 @@ function RichTextEditor({
               const dataUrl = ev.target?.result as string;
               editorRef.current?.focus();
               restoreSelection();
-              document.execCommand("insertHTML", false,
-                `<img src="${dataUrl}" alt="${file.name}" style="max-width:100%;height:auto;border-radius:8px;margin:8px 0;" />`
+              document.execCommand(
+                "insertHTML",
+                false,
+                `<img src="${dataUrl}" alt="${file.name}" style="max-width:100%;height:auto;border-radius:8px;margin:8px 0;" />`,
               );
               if (editorRef.current) onChange(editorRef.current.innerHTML);
             };
@@ -600,9 +678,24 @@ export default function FooterOptionsPage() {
   const [productTotalPages, setProductTotalPages] = useState(1);
   const [productSearch, setProductSearch] = useState("");
   const [debouncedProductSearch, setDebouncedProductSearch] = useState("");
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [baseSelectedIds, setBaseSelectedIds] = useState<Set<string>>(
+    new Set(),
+  );
+  const [addedSelectedIds, setAddedSelectedIds] = useState<Set<string>>(
+    new Set(),
+  );
+  const [removedSelectedIds, setRemovedSelectedIds] = useState<Set<string>>(
+    new Set(),
+  );
   const [productsSaving, setProductsSaving] = useState(false);
   const [productsSaved, setProductsSaved] = useState(false);
+
+  const selectedIds = useMemo(() => {
+    const next = new Set(baseSelectedIds);
+    addedSelectedIds.forEach((id) => next.add(id));
+    removedSelectedIds.forEach((id) => next.delete(id));
+    return next;
+  }, [baseSelectedIds, addedSelectedIds, removedSelectedIds]);
 
   // Load policy
   const loadPolicy = useCallback(
@@ -682,6 +775,63 @@ export default function FooterOptionsPage() {
   }, [getToken, authHeaders, toast, router]);
 
   // Load products
+  const loadExistingSelectedProductIds = useCallback(
+    async (tabId: string) => {
+      const token = getToken();
+      if (!token) return;
+
+      const sort = tabId === "recommended" ? "RATING_DESC" : "SALES_DESC";
+      const flag = tabId === "recommended" ? "recommended" : "bestSelling";
+      const selected = new Set<string>();
+
+      try {
+        let currentPage = 1;
+        let totalPages = 1;
+
+        while (currentPage <= totalPages) {
+          const params = new URLSearchParams({
+            includeInactive: "1",
+            sort,
+            pageNo: String(currentPage),
+            pageSize: "200",
+          });
+
+          const res = await fetch(`${API_BASE}/product/all?${params}`, {
+            headers: authHeaders(token),
+          });
+
+          if (res.status === 401) {
+            sessionStorage.clear();
+            router.push("/");
+            return;
+          }
+          if (!res.ok) throw new Error(`Server error (${res.status})`);
+
+          const json = await res.json();
+          if (!json.status) throw new Error(json.message);
+
+          const prods: ProductRecord[] = json.data.records.products ?? [];
+          prods.forEach((p) => {
+            if (p[flag]) selected.add(p._id);
+          });
+
+          totalPages = json.data.totalPages || 1;
+          currentPage += 1;
+        }
+
+        setBaseSelectedIds(selected);
+      } catch (err: unknown) {
+        toast({
+          title: "Failed to load selected products",
+          description: err instanceof Error ? err.message : "Please try again.",
+          variant: "destructive",
+        });
+      }
+    },
+    [getToken, authHeaders, toast, router],
+  );
+
+  // Load products
   const loadProducts = useCallback(
     async (tabId: string, pg: number, pgSize: number, search: string) => {
       const token = getToken();
@@ -711,8 +861,6 @@ export default function FooterOptionsPage() {
         setProducts(prods);
         setProductTotal(json.data.totalRecords);
         setProductTotalPages(json.data.totalPages || 1);
-        const flag = tabId === "recommended" ? "recommended" : "bestSelling";
-        setSelectedIds(new Set(prods.filter((p) => p[flag]).map((p) => p._id)));
       } catch (err: unknown) {
         toast({
           title: "Failed to load products",
@@ -736,7 +884,10 @@ export default function FooterOptionsPage() {
       setProductPage(1);
       setProductSearch("");
       setDebouncedProductSearch("");
-      setSelectedIds(new Set());
+      setBaseSelectedIds(new Set());
+      setAddedSelectedIds(new Set());
+      setRemovedSelectedIds(new Set());
+      loadExistingSelectedProductIds(activeTab);
       loadProducts(activeTab, 1, productPerPage, "");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -898,6 +1049,14 @@ export default function FooterOptionsPage() {
     if (!token) return;
     const endpoint =
       activeTab === "recommended" ? "recommended" : "best-selling";
+    // TEMP DEBUG: remove after diagnosing save count
+    console.log("[footer save]", {
+      base: Array.from(baseSelectedIds),
+      added: Array.from(addedSelectedIds),
+      removed: Array.from(removedSelectedIds),
+      finalCount: selectedIds.size,
+      payloadIds: Array.from(selectedIds),
+    });
     setProductsSaving(true);
     try {
       const res = await fetch(`${API_BASE}/product/${endpoint}`, {
@@ -916,6 +1075,9 @@ export default function FooterOptionsPage() {
       setProductsSaved(true);
       setTimeout(() => setProductsSaved(false), 2500);
       toast({ title: "Saved", description: "Product selections updated." });
+      setBaseSelectedIds(new Set(selectedIds));
+      setAddedSelectedIds(new Set());
+      setRemovedSelectedIds(new Set());
       loadProducts(
         activeTab,
         productPage,
@@ -1118,14 +1280,32 @@ export default function FooterOptionsPage() {
                   key={p._id}
                   product={p}
                   selected={selectedIds.has(p._id)}
-                  onToggle={() =>
-                    setSelectedIds((ids) => {
-                      const next = new Set(ids);
-                      if (next.has(p._id)) next.delete(p._id);
-                      else next.add(p._id);
-                      return next;
-                    })
-                  }
+                  onToggle={() => {
+                    const isSelected = selectedIds.has(p._id);
+                    if (isSelected) {
+                      setRemovedSelectedIds((prev) => {
+                        const next = new Set(prev);
+                        next.add(p._id);
+                        return next;
+                      });
+                      setAddedSelectedIds((prev) => {
+                        const next = new Set(prev);
+                        next.delete(p._id);
+                        return next;
+                      });
+                    } else {
+                      setAddedSelectedIds((prev) => {
+                        const next = new Set(prev);
+                        next.add(p._id);
+                        return next;
+                      });
+                      setRemovedSelectedIds((prev) => {
+                        const next = new Set(prev);
+                        next.delete(p._id);
+                        return next;
+                      });
+                    }
+                  }}
                 />
               ))}
             </div>

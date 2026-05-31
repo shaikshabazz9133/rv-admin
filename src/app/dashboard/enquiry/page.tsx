@@ -2,8 +2,16 @@
 
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Search, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import { Search, ChevronLeft, ChevronRight, Loader2, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  DialogClose,
+} from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 
@@ -18,6 +26,7 @@ interface ContactForm {
   mobile: string;
   email: string;
   message: string;
+  reply?: string;
   replySent: boolean;
   insertedAt: number;
 }
@@ -35,6 +44,20 @@ function formatDate(ts: number) {
 
   return formatted.replace(/\b(am|pm)\b/gi, (match) => match.toUpperCase());
 }
+
+function formatDateTime(ts: number) {
+  return new Date(ts).toLocaleString("en-AU", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  });
+}
+
+const REPLY_MAX = 10000;
 
 // ─── Per-page options ──────────────────────────────────────────────────────────
 
@@ -149,6 +172,149 @@ function Pagination({
   );
 }
 
+// ─── Enquiry Detail / Reply Modal ───────────────────────────────────────────────
+
+function EnquiryDetailModal({
+  enquiry,
+  onClose,
+  onReplied,
+}: {
+  enquiry: ContactForm;
+  onClose: () => void;
+  onReplied: (id: string, reply: string) => void;
+}) {
+  const { toast } = useToast();
+  const [reply, setReply] = useState("");
+  const [sending, setSending] = useState(false);
+
+  const handleSend = async () => {
+    if (!reply.trim()) {
+      toast({ title: "Please enter a reply", variant: "destructive" });
+      return;
+    }
+    const token = sessionStorage.getItem("auth_token");
+    if (!token) return;
+    setSending(true);
+    try {
+      const res = await fetch(`${API_BASE}/contact-forms/reply`, {
+        method: "PATCH",
+        headers: {
+          authorization: `Bearer ${token}`,
+          "content-type": "application/json",
+          "x-app-client": "ADMIN_PANEL",
+          accept: "application/json",
+        },
+        body: JSON.stringify({ supportId: enquiry._id, reply: reply.trim() }),
+      });
+      if (!res.ok) throw new Error(`Server error (${res.status})`);
+      const json = await res.json();
+      if (!json.status) throw new Error(json.message || "Failed to send reply");
+      toast({ title: "Reply sent successfully" });
+      onReplied(enquiry._id, reply.trim());
+      onClose();
+    } catch (err: unknown) {
+      toast({
+        title: "Failed to send reply",
+        description: err instanceof Error ? err.message : "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <Dialog open onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="p-0 gap-0 overflow-hidden sm:max-w-3xl [&>button]:hidden">
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 bg-[#eef0fb]">
+          <DialogTitle className="text-base font-semibold text-[#3b4ce0]">
+            Enquiry Message
+          </DialogTitle>
+          <DialogClose className="text-gray-400 hover:text-gray-600 transition-colors">
+            <X className="h-5 w-5" />
+            <span className="sr-only">Close</span>
+          </DialogClose>
+        </div>
+
+        <div className="p-6 space-y-5">
+          {/* Customer Information */}
+          <div className="rounded-xl border border-gray-200 bg-gray-50/70 p-4">
+            <p className="text-sm text-gray-500 mb-3">Customer Information</p>
+            <div className="flex flex-wrap gap-x-12 gap-y-2 text-sm">
+              <p>
+                <span className="font-bold text-gray-900">Name:</span>{" "}
+                <span className="text-gray-700">{enquiry.name}</span>
+              </p>
+              <p>
+                <span className="font-bold text-gray-900">Email:</span>{" "}
+                <span className="text-gray-700">{enquiry.email}</span>
+              </p>
+              <p>
+                <span className="font-bold text-gray-900">Mobile:</span>{" "}
+                <span className="text-gray-700">
+                  {enquiry.countryCode}
+                  {enquiry.mobile}
+                </span>
+              </p>
+              <p>
+                <span className="font-bold text-gray-900">Date:</span>{" "}
+                <span className="text-gray-700">
+                  {formatDateTime(enquiry.insertedAt)}
+                </span>
+              </p>
+            </div>
+          </div>
+
+          {/* Customer Message */}
+          <div className="rounded-xl border border-gray-200 border-l-4 border-l-blue-500 p-4">
+            <p className="text-sm text-gray-500 mb-2">Customer Message</p>
+            <p className="text-sm text-gray-800 whitespace-pre-wrap">
+              {enquiry.message}
+            </p>
+          </div>
+
+          {/* Existing reply */}
+          {enquiry.reply && (
+            <div className="rounded-xl border border-green-200 bg-green-50 p-4">
+              <p className="text-sm text-gray-500 mb-2">Previous Reply</p>
+              <p className="text-sm text-gray-800 whitespace-pre-wrap">
+                {enquiry.reply}
+              </p>
+            </div>
+          )}
+
+          {/* Send Reply */}
+          <div className="rounded-xl border border-gray-200 bg-gray-50/70 p-4">
+            <p className="text-sm text-gray-500 mb-3">Send Reply</p>
+            <Textarea
+              placeholder="Type your reply message here..."
+              value={reply}
+              onChange={(e) => setReply(e.target.value.slice(0, REPLY_MAX))}
+              maxLength={REPLY_MAX}
+              rows={5}
+              className="resize-none bg-white"
+            />
+            <div className="flex items-center justify-between mt-3">
+              <span className="text-xs text-gray-400">
+                {reply.length}/{REPLY_MAX} characters
+              </span>
+              <Button
+                onClick={handleSend}
+                disabled={sending || !reply.trim()}
+                className="gap-1.5 bg-[#1a2b6b] hover:bg-[#162255] text-white disabled:bg-gray-200 disabled:text-gray-400 disabled:opacity-100"
+              >
+                {sending && <Loader2 className="h-4 w-4 animate-spin" />}
+                Send Reply
+              </Button>
+            </div>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function EnquiryPage() {
   const { toast } = useToast();
   const router = useRouter();
@@ -160,6 +326,7 @@ export default function EnquiryPage() {
   const [perPage, setPerPage] = useState(25);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
+  const [selected, setSelected] = useState<ContactForm | null>(null);
 
   // Debounce search input
   useEffect(() => {
@@ -286,7 +453,8 @@ export default function EnquiryPage() {
                 records.map((enq) => (
                   <tr
                     key={enq._id}
-                    className="hover:bg-gray-50 transition-colors"
+                    onClick={() => setSelected(enq)}
+                    className="hover:bg-gray-50 transition-colors cursor-pointer"
                   >
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
@@ -338,6 +506,20 @@ export default function EnquiryPage() {
           onPerPage={setPerPage}
         />
       </div>
+
+      {selected && (
+        <EnquiryDetailModal
+          enquiry={selected}
+          onClose={() => setSelected(null)}
+          onReplied={(id, reply) =>
+            setRecords((prev) =>
+              prev.map((r) =>
+                r._id === id ? { ...r, replySent: true, reply } : r,
+              ),
+            )
+          }
+        />
+      )}
     </motion.div>
   );
 }

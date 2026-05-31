@@ -429,9 +429,14 @@ export default function ProductsPage() {
   const [showAddCategory, setShowAddCategory] = useState(false);
   const [editCategoryId, setEditCategoryId] = useState<string | null>(null);
   const [deleteCategoryId, setDeleteCategoryId] = useState<string | null>(null);
-  const [pauseCategoryData, setPauseCategoryData] = useState<{ _id: string; currentlyActive: boolean } | null>(null);
+  const [pauseCategoryData, setPauseCategoryData] = useState<{
+    _id: string;
+    currentlyActive: boolean;
+  } | null>(null);
   const [savingCategory, setSavingCategory] = useState(false);
-  const [categoryOptions, setCategoryOptions] = useState<FlatCategoryOption[]>([]);
+  const [categoryOptions, setCategoryOptions] = useState<FlatCategoryOption[]>(
+    [],
+  );
   const [categoryForm, setCategoryForm] = useState({
     name: "",
     level: "L1",
@@ -519,9 +524,12 @@ export default function ProductsPage() {
       let idCounter = 0;
       const mapNode = (node: any, parentName: string): Category => {
         const id = ++idCounter;
-        const children = (node.categories ?? []).length > 0
-          ? (node.categories as any[]).map((child: any) => mapNode(child, node.name))
-          : undefined;
+        const children =
+          (node.categories ?? []).length > 0
+            ? (node.categories as any[]).map((child: any) =>
+                mapNode(child, node.name),
+              )
+            : undefined;
         return {
           id,
           _id: node._id,
@@ -543,7 +551,11 @@ export default function ProductsPage() {
       const json = await res.json();
       setCategories((json.data?.tree ?? []).map((n: any) => mapNode(n, "-")));
     } catch {
-      toast({ title: "Error", description: "Failed to load categories.", variant: "destructive" });
+      toast({
+        title: "Error",
+        description: "Failed to load categories.",
+        variant: "destructive",
+      });
     } finally {
       setCategoriesLoading(false);
     }
@@ -686,10 +698,16 @@ export default function ProductsPage() {
     setShowAddCategory(true);
     try {
       const token = getToken();
-      if (!token) { router.push("/"); return; }
-      const res = await fetch(`${API_BASE}/product/category?categoryId=${cat._id}`, {
-        headers: authHeaders(token),
-      });
+      if (!token) {
+        router.push("/");
+        return;
+      }
+      const res = await fetch(
+        `${API_BASE}/product/category?categoryId=${cat._id}`,
+        {
+          headers: authHeaders(token),
+        },
+      );
       const json = await res.json();
       const d = json.data;
       if (d) {
@@ -723,18 +741,25 @@ export default function ProductsPage() {
 
   const saveCategory = async () => {
     const errors = validateCategory(categoryForm);
-    if (Object.keys(errors).length > 0) { setCategoryErrors(errors); return; }
+    if (Object.keys(errors).length > 0) {
+      setCategoryErrors(errors);
+      return;
+    }
     const token = getToken();
-    if (!token) { router.push("/"); return; }
+    if (!token) {
+      router.push("/");
+      return;
+    }
     setSavingCategory(true);
     try {
-      const levelNum = categoryForm.level === "L1" ? 1 : categoryForm.level === "L2" ? 2 : 3;
+      const levelNum =
+        categoryForm.level === "L1" ? 1 : categoryForm.level === "L2" ? 2 : 3;
       const parentId =
         levelNum === 2
           ? categoryForm.parentL1Id
           : levelNum === 3
-          ? categoryForm.parentL2Id
-          : "";
+            ? categoryForm.parentL2Id
+            : "";
       const fd = new FormData();
       fd.append("name", categoryForm.name);
       fd.append("level", String(levelNum));
@@ -753,23 +778,34 @@ export default function ProductsPage() {
           headers: authHeaders(token),
           body: fd,
         });
-        if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.message || "Update failed"); }
+        if (!res.ok) {
+          const d = await res.json().catch(() => ({}));
+          throw new Error(d.message || "Update failed");
+        }
         toast({ title: "Category updated!" });
       } else {
-        if (categoryImageFileRef.current) fd.append("image", categoryImageFileRef.current);
+        if (categoryImageFileRef.current)
+          fd.append("image", categoryImageFileRef.current);
         const res = await fetch(`${API_BASE}/product/category`, {
           method: "POST",
           headers: authHeaders(token),
           body: fd,
         });
-        if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.message || "Create failed"); }
+        if (!res.ok) {
+          const d = await res.json().catch(() => ({}));
+          throw new Error(d.message || "Create failed");
+        }
         toast({ title: "Category added!" });
       }
       setActiveTab("categories");
       setShowAddCategory(false);
       loadCategories();
     } catch (err: any) {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
+      toast({
+        title: "Error",
+        description: err.message,
+        variant: "destructive",
+      });
     } finally {
       setSavingCategory(false);
     }
@@ -778,47 +814,83 @@ export default function ProductsPage() {
   const handleDeleteCategory = async () => {
     if (!deleteCategoryId) return;
     const token = getToken();
-    if (!token) { router.push("/"); return; }
+    if (!token) {
+      router.push("/");
+      return;
+    }
     try {
-      const res = await fetch(`${API_BASE}/product/category?categoryId=${deleteCategoryId}`, {
-        method: "DELETE",
-        headers: authHeaders(token),
-      });
-      if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.message || "Delete failed"); }
+      const res = await fetch(
+        `${API_BASE}/product/category?categoryId=${deleteCategoryId}`,
+        {
+          method: "DELETE",
+          headers: authHeaders(token),
+        },
+      );
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        throw new Error(d.message || "Delete failed");
+      }
       toast({ title: "Category deleted!" });
       setDeleteCategoryId(null);
       loadCategories();
     } catch (err: any) {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
+      toast({
+        title: "Error",
+        description: err.message,
+        variant: "destructive",
+      });
       setDeleteCategoryId(null);
     }
   };
 
-  const handleCategoryToggleStatus = async (data: { _id: string; currentlyActive: boolean }) => {
+  const handleCategoryToggleStatus = async (data: {
+    _id: string;
+    currentlyActive: boolean;
+  }) => {
     const token = getToken();
-    if (!token) { router.push("/"); return; }
+    if (!token) {
+      router.push("/");
+      return;
+    }
     try {
       const res = await fetch(`${API_BASE}/product/category-status`, {
         method: "PATCH",
         headers: jsonHeaders(token),
-        body: JSON.stringify({ categoryId: data._id, isActive: !data.currentlyActive }),
+        body: JSON.stringify({
+          categoryId: data._id,
+          isActive: !data.currentlyActive,
+        }),
       });
-      if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.message || "Update failed"); }
-      toast({ title: data.currentlyActive ? "Category paused!" : "Category activated!" });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        throw new Error(d.message || "Update failed");
+      }
+      toast({
+        title: data.currentlyActive
+          ? "Category paused!"
+          : "Category activated!",
+      });
       setPauseCategoryData(null);
       loadCategories();
     } catch (err: any) {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
+      toast({
+        title: "Error",
+        description: err.message,
+        variant: "destructive",
+      });
       setPauseCategoryData(null);
     }
   };
 
-  const handleCategoryImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleCategoryImageChange = (
+    e: React.ChangeEvent<HTMLInputElement>,
+  ) => {
     const file = e.target.files?.[0];
     if (!file) return;
     categoryImageFileRef.current = file;
     const reader = new FileReader();
-    reader.onload = (ev) => setCategoryForm((f) => ({ ...f, image: ev.target?.result as string }));
+    reader.onload = (ev) =>
+      setCategoryForm((f) => ({ ...f, image: ev.target?.result as string }));
     reader.readAsDataURL(file);
   };
 
@@ -1127,7 +1199,10 @@ export default function ProductsPage() {
                   </tr>
                 ) : categories.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="px-4 py-12 text-center text-gray-400 text-sm">
+                    <td
+                      colSpan={5}
+                      className="px-4 py-12 text-center text-gray-400 text-sm"
+                    >
                       No categories found.
                     </td>
                   </tr>
@@ -1153,7 +1228,9 @@ export default function ProductsPage() {
                     }
                     onEdit={openEditCategory}
                     onDelete={(id) => setDeleteCategoryId(id)}
-                    onPause={(id, currentlyActive) => setPauseCategoryData({ _id: id, currentlyActive })}
+                    onPause={(id, currentlyActive) =>
+                      setPauseCategoryData({ _id: id, currentlyActive })
+                    }
                   />
                 )}
               </tbody>
@@ -1302,7 +1379,8 @@ export default function ProductsPage() {
                       </SelectContent>
                     </Select>
                   </div>
-                  {(categoryForm.level === "L2" || categoryForm.level === "L3") && (
+                  {(categoryForm.level === "L2" ||
+                    categoryForm.level === "L3") && (
                     <div>
                       <Label className="text-[#1a2b6b] font-medium text-sm">
                         Select Level 1 Category
@@ -1435,11 +1513,15 @@ export default function ProductsPage() {
                 Cancel
               </Button>
               <Button
-                  className="bg-gray-200 hover:bg-gray-300 text-gray-700 uppercase tracking-wide px-6"
-                  onClick={saveCategory}
+                className="bg-[rgb(26_43_107/var(--tw-bg-opacity,1))] hover:bg-[#142258] text-white uppercase tracking-wide px-6"
+                onClick={saveCategory}
                 disabled={savingCategory}
-                >
-                  {savingCategory ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
+              >
+                {savingCategory ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  "Save"
+                )}
               </Button>
             </div>
           </ModalOverlay>
@@ -1489,7 +1571,9 @@ export default function ProductsPage() {
           <ModalOverlay onClose={() => setPauseCategoryData(null)}>
             <div className="flex items-center justify-between p-4 sm:p-5 border-b border-gray-100">
               <h3 className="text-base font-semibold text-[#1a2b6b]">
-                {pauseCategoryData.currentlyActive ? "Pause Category?" : "Activate Category?"}
+                {pauseCategoryData.currentlyActive
+                  ? "Pause Category?"
+                  : "Activate Category?"}
               </h3>
               <button
                 onClick={() => setPauseCategoryData(null)}

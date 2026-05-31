@@ -3,7 +3,14 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { Eye, EyeOff, Loader2, Tent } from "lucide-react";
+import {
+  CheckCircle2,
+  Eye,
+  EyeOff,
+  Loader2,
+  XCircle,
+  Tent,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -59,6 +66,16 @@ function Particle({ index }: { index: number }) {
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+function getPasswordChecks(value: string) {
+  return {
+    hasUppercase: /[A-Z]/.test(value),
+    hasLowercase: /[a-z]/.test(value),
+    hasNumber: /\d/.test(value),
+    hasSpecial: /[^A-Za-z0-9]/.test(value),
+    hasAlphabet: /[A-Za-z]/.test(value),
+  };
+}
+
 function validateFields(email: string, password: string) {
   const errors: { email?: string; password?: string } = {};
   if (!email.trim()) {
@@ -82,16 +99,283 @@ export default function LoginPage() {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [otp, setOtp] = useState("");
+  const [resetPassword, setResetPassword] = useState("");
+  const [confirmResetPassword, setConfirmResetPassword] = useState("");
+  const [resetRequestId, setResetRequestId] = useState("");
+  const [isOtpVerified, setIsOtpVerified] = useState(false);
+  const [isForgotPasswordMode, setIsForgotPasswordMode] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [showResetPassword, setShowResetPassword] = useState(false);
+  const [showConfirmResetPassword, setShowConfirmResetPassword] =
+    useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<{
     email?: string;
+    otp?: string;
     password?: string;
+    resetPassword?: string;
+    confirmResetPassword?: string;
   }>({});
 
-  const clearFieldError = (field: "email" | "password") =>
-    setFieldErrors((prev) => ({ ...prev, [field]: "" }));
+  const clearFieldError = (
+    field:
+      | "email"
+      | "otp"
+      | "password"
+      | "resetPassword"
+      | "confirmResetPassword",
+  ) => setFieldErrors((prev) => ({ ...prev, [field]: "" }));
+
+  const resetForgotPasswordState = () => {
+    setIsForgotPasswordMode(false);
+    setOtp("");
+    setResetPassword("");
+    setConfirmResetPassword("");
+    setResetRequestId("");
+    setIsOtpVerified(false);
+    setShowResetPassword(false);
+    setShowConfirmResetPassword(false);
+    setFieldErrors({});
+  };
+
+  const handleForgotPasswordRequest = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    const nextErrors: { email?: string } = {};
+    if (!email.trim()) {
+      nextErrors.email = "Email address is required.";
+    } else if (!emailRegex.test(email.trim())) {
+      nextErrors.email = "Enter a valid email address.";
+    }
+
+    if (Object.keys(nextErrors).length) {
+      setFieldErrors((prev) => ({ ...prev, ...nextErrors }));
+      return;
+    }
+
+    setFieldErrors((prev) => ({ ...prev, email: "" }));
+    setLoading(true);
+
+    try {
+      const res = await fetch(`${API_BASE}/forgot-password`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-app-client": "ADMIN_PANEL",
+          accept: "application/json, text/plain, */*",
+        },
+        body: JSON.stringify({ email: email.trim() }),
+      });
+
+      let json: any = {};
+      try {
+        json = await res.json();
+      } catch {
+        // non-JSON response
+      }
+
+      if (!res.ok || json.status === false || !json.data?.requestId) {
+        const msg =
+          json.message ||
+          (res.status
+            ? `Server error (${res.status}).`
+            : "Failed to request password reset.");
+        toast({
+          title: "Reset Request Failed",
+          description: msg,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      setResetRequestId(json.data.requestId);
+      setOtp("");
+      setIsOtpVerified(false);
+      toast({
+        title: "Reset Requested",
+        description: "Enter the 4-digit OTP to continue.",
+        variant: "success" as any,
+      });
+    } catch {
+      toast({
+        title: "Connection Error",
+        description:
+          "Could not connect to the server. Check your network and try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    const nextErrors: { otp?: string } = {};
+    if (!otp.trim()) {
+      nextErrors.otp = "OTP is required.";
+    } else if (!/^\d{4}$/.test(otp.trim())) {
+      nextErrors.otp = "Enter a valid 4-digit OTP.";
+    }
+
+    if (Object.keys(nextErrors).length) {
+      setFieldErrors((prev) => ({ ...prev, ...nextErrors }));
+      return;
+    }
+
+    setFieldErrors((prev) => ({ ...prev, otp: "" }));
+    setLoading(true);
+
+    try {
+      const res = await fetch(`${API_BASE}/verify-otp`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          "x-app-client": "ADMIN_PANEL",
+          accept: "application/json, text/plain, */*",
+        },
+        body: JSON.stringify({
+          requestId: resetRequestId,
+          otp: otp.trim(),
+        }),
+      });
+
+      let json: any = {};
+      try {
+        json = await res.json();
+      } catch {
+        // non-JSON response
+      }
+
+      if (!res.ok || json.status === false) {
+        const msg =
+          json.message ||
+          (res.status
+            ? `Server error (${res.status}).`
+            : "Failed to verify OTP.");
+        toast({
+          title: "OTP Verification Failed",
+          description: msg,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      setIsOtpVerified(true);
+      toast({
+        title: "OTP Verified",
+        description: "Now set your new password.",
+        variant: "success" as any,
+      });
+    } catch {
+      toast({
+        title: "Connection Error",
+        description:
+          "Could not connect to the server. Check your network and try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    const passwordChecks = getPasswordChecks(resetPassword);
+    const isStrongPassword =
+      resetPassword.length >= 8 &&
+      passwordChecks.hasUppercase &&
+      passwordChecks.hasLowercase &&
+      passwordChecks.hasNumber &&
+      passwordChecks.hasSpecial &&
+      passwordChecks.hasAlphabet;
+
+    const nextErrors: {
+      resetPassword?: string;
+      confirmResetPassword?: string;
+    } = {};
+    if (!resetPassword) {
+      nextErrors.resetPassword = "Password is required.";
+    } else if (!isStrongPassword) {
+      nextErrors.resetPassword =
+        "Password must include uppercase, lowercase, number, special character, and at least 8 characters.";
+    }
+
+    if (!confirmResetPassword) {
+      nextErrors.confirmResetPassword = "Confirm password is required.";
+    } else if (confirmResetPassword !== resetPassword) {
+      nextErrors.confirmResetPassword = "Passwords do not match.";
+    }
+
+    if (Object.keys(nextErrors).length) {
+      setFieldErrors((prev) => ({ ...prev, ...nextErrors }));
+      return;
+    }
+
+    setFieldErrors((prev) => ({
+      ...prev,
+      resetPassword: "",
+      confirmResetPassword: "",
+    }));
+    setLoading(true);
+
+    try {
+      const res = await fetch(`${API_BASE}/forgot-password/reset`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          "x-app-client": "ADMIN_PANEL",
+          accept: "application/json, text/plain, */*",
+        },
+        body: JSON.stringify({
+          password: resetPassword,
+          requestId: resetRequestId,
+        }),
+      });
+
+      let json: any = {};
+      try {
+        json = await res.json();
+      } catch {
+        // non-JSON response
+      }
+
+      if (!res.ok || json.status === false) {
+        const msg =
+          json.message ||
+          (res.status
+            ? `Server error (${res.status}).`
+            : "Failed to reset password.");
+        toast({
+          title: "Password Reset Failed",
+          description: msg,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      toast({
+        title: "Password Updated",
+        description: "Sign in with your new password.",
+        variant: "success" as any,
+      });
+      setPassword("");
+      resetForgotPasswordState();
+      router.push("/");
+    } catch {
+      toast({
+        title: "Connection Error",
+        description:
+          "Could not connect to the server. Check your network and try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -159,7 +443,7 @@ export default function LoginPage() {
         variant: "success" as any,
       });
       router.push("/dashboard");
-    } catch (err) {
+    } catch {
       toast({
         title: "Connection Error",
         description:
@@ -170,6 +454,42 @@ export default function LoginPage() {
       setLoading(false);
     }
   };
+
+  const showOtpStep =
+    isForgotPasswordMode && !!resetRequestId && !isOtpVerified;
+  const showResetStep =
+    isForgotPasswordMode && !!resetRequestId && isOtpVerified;
+  const resetPasswordChecks = getPasswordChecks(resetPassword);
+
+  const forgotPasswordDescription = !resetRequestId
+    ? "Enter your email to request a password reset"
+    : isOtpVerified
+      ? "Set a new password for your admin account"
+      : "Enter the 4-digit OTP sent to your email";
+
+  const formSubmitHandler = isForgotPasswordMode
+    ? !resetRequestId
+      ? handleForgotPasswordRequest
+      : isOtpVerified
+        ? handleResetPassword
+        : handleVerifyOtp
+    : handleLogin;
+
+  const loadingText = isForgotPasswordMode
+    ? !resetRequestId
+      ? "Sending request..."
+      : isOtpVerified
+        ? "Updating password..."
+        : "Verifying OTP..."
+    : "Signing in...";
+
+  const submitText = isForgotPasswordMode
+    ? !resetRequestId
+      ? "Send Reset Request"
+      : isOtpVerified
+        ? "Update Password"
+        : "Verify OTP"
+    : "Sign In";
 
   return (
     <div className="flex min-h-screen">
@@ -280,13 +600,17 @@ export default function LoginPage() {
           </div>
 
           <div className="mb-8">
-            <h2 className="text-2xl font-bold text-foreground">Welcome back</h2>
+            <h2 className="text-2xl font-bold text-foreground">
+              {isForgotPasswordMode ? "Reset your password" : "Welcome back"}
+            </h2>
             <p className="text-muted-foreground mt-1">
-              Sign in to your admin account
+              {isForgotPasswordMode
+                ? forgotPasswordDescription
+                : "Sign in to your admin account"}
             </p>
           </div>
 
-          <form onSubmit={handleLogin} className="space-y-5" noValidate>
+          <form onSubmit={formSubmitHandler} className="space-y-5" noValidate>
             {/* Email */}
             <div className="space-y-1.5">
               <Label htmlFor="email">Email address</Label>
@@ -301,7 +625,7 @@ export default function LoginPage() {
                 }}
                 className={`h-11 ${fieldErrors.email ? "border-red-400 focus-visible:ring-red-300" : ""}`}
                 autoComplete="email"
-                disabled={loading}
+                disabled={loading || (isForgotPasswordMode && !!resetRequestId)}
               />
               {fieldErrors.email && fieldErrors.email.trim() && (
                 <motion.p
@@ -314,69 +638,286 @@ export default function LoginPage() {
               )}
             </div>
 
-            {/* Password */}
-            <div className="space-y-1.5">
-              <Label htmlFor="password">Password</Label>
-              <div className="relative">
+            {showOtpStep && (
+              <div className="space-y-1.5">
+                <Label htmlFor="otp">4-digit OTP</Label>
                 <Input
-                  id="password"
-                  type={showPassword ? "text" : "password"}
-                  placeholder="Enter your password"
-                  value={password}
+                  id="otp"
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="Enter OTP"
+                  value={otp}
                   onChange={(e) => {
-                    setPassword(e.target.value);
-                    clearFieldError("password");
+                    const digitsOnly = e.target.value
+                      .replace(/\D/g, "")
+                      .slice(0, 4);
+                    setOtp(digitsOnly);
+                    clearFieldError("otp");
                   }}
-                  className={`h-11 pr-10 ${fieldErrors.password ? "border-red-400 focus-visible:ring-red-300" : ""}`}
-                  autoComplete="current-password"
+                  className={`h-11 tracking-[0.35em] text-center text-lg ${fieldErrors.otp ? "border-red-400 focus-visible:ring-red-300" : ""}`}
+                  maxLength={4}
                   disabled={loading}
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                  tabIndex={-1}
-                >
-                  {showPassword ? (
-                    <EyeOff className="h-4 w-4" />
-                  ) : (
-                    <Eye className="h-4 w-4" />
-                  )}
-                </button>
+                {fieldErrors.otp && fieldErrors.otp.trim() && (
+                  <motion.p
+                    initial={{ opacity: 0, y: -4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="text-xs text-red-500"
+                  >
+                    {fieldErrors.otp}
+                  </motion.p>
+                )}
               </div>
-              {fieldErrors.password && fieldErrors.password.trim() && (
-                <motion.p
-                  initial={{ opacity: 0, y: -4 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="text-xs text-red-500"
-                >
-                  {fieldErrors.password}
-                </motion.p>
-              )}
-            </div>
+            )}
 
-            {/* Remember me */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Checkbox
-                  id="remember"
-                  checked={rememberMe}
-                  onCheckedChange={(c) => setRememberMe(c as boolean)}
-                />
-                <Label
-                  htmlFor="remember"
-                  className="font-normal cursor-pointer"
-                >
-                  Remember me
+            {!isForgotPasswordMode && (
+              <>
+                {/* Password */}
+                <div className="space-y-1.5">
+                  <Label htmlFor="password">Password</Label>
+                  <div className="relative">
+                    <Input
+                      id="password"
+                      type={showPassword ? "text" : "password"}
+                      placeholder="Enter your password"
+                      value={password}
+                      onChange={(e) => {
+                        setPassword(e.target.value);
+                        clearFieldError("password");
+                      }}
+                      className={`h-11 pr-10 ${fieldErrors.password ? "border-red-400 focus-visible:ring-red-300" : ""}`}
+                      autoComplete="current-password"
+                      disabled={loading}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                      tabIndex={-1}
+                    >
+                      {showPassword ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
+                    </button>
+                  </div>
+                  {fieldErrors.password && fieldErrors.password.trim() && (
+                    <motion.p
+                      initial={{ opacity: 0, y: -4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="text-xs text-red-500"
+                    >
+                      {fieldErrors.password}
+                    </motion.p>
+                  )}
+                </div>
+
+                {/* Remember me */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id="remember"
+                      checked={rememberMe}
+                      onCheckedChange={(c) => setRememberMe(c as boolean)}
+                    />
+                    <Label
+                      htmlFor="remember"
+                      className="font-normal cursor-pointer"
+                    >
+                      Remember me
+                    </Label>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsForgotPasswordMode(true);
+                      setFieldErrors({});
+                    }}
+                    className="text-sm text-primary hover:underline font-medium"
+                  >
+                    Forgot password?
+                  </button>
+                </div>
+              </>
+            )}
+
+            {showResetStep && (
+              <div className="space-y-1.5">
+                <Label htmlFor="resetPassword">New password</Label>
+                <div className="relative">
+                  <Input
+                    id="resetPassword"
+                    type={showResetPassword ? "text" : "password"}
+                    placeholder="Enter your new password"
+                    value={resetPassword}
+                    onChange={(e) => {
+                      setResetPassword(e.target.value);
+                      clearFieldError("resetPassword");
+                      clearFieldError("confirmResetPassword");
+                    }}
+                    className={`h-11 pr-10 ${fieldErrors.resetPassword ? "border-red-400 focus-visible:ring-red-300" : ""}`}
+                    autoComplete="new-password"
+                    disabled={loading}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowResetPassword(!showResetPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                    tabIndex={-1}
+                  >
+                    {showResetPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </button>
+                </div>
+                {fieldErrors.resetPassword &&
+                  fieldErrors.resetPassword.trim() && (
+                    <motion.p
+                      initial={{ opacity: 0, y: -4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="text-xs text-red-500"
+                    >
+                      {fieldErrors.resetPassword}
+                    </motion.p>
+                  )}
+
+                <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600 space-y-1">
+                  <p className="font-medium text-slate-700">
+                    Password must include:
+                  </p>
+                  <div
+                    className={
+                      resetPasswordChecks.hasUppercase
+                        ? "flex items-center gap-2 text-emerald-600"
+                        : "flex items-center gap-2 text-slate-500"
+                    }
+                  >
+                    {resetPasswordChecks.hasUppercase ? (
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                    ) : (
+                      <XCircle className="h-3.5 w-3.5" />
+                    )}
+                    <p>Uppercase letter (A-Z)</p>
+                  </div>
+                  <div
+                    className={
+                      resetPasswordChecks.hasLowercase
+                        ? "flex items-center gap-2 text-emerald-600"
+                        : "flex items-center gap-2 text-slate-500"
+                    }
+                  >
+                    {resetPasswordChecks.hasLowercase ? (
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                    ) : (
+                      <XCircle className="h-3.5 w-3.5" />
+                    )}
+                    <p>Lowercase letter (a-z)</p>
+                  </div>
+                  <div
+                    className={
+                      resetPasswordChecks.hasNumber
+                        ? "flex items-center gap-2 text-emerald-600"
+                        : "flex items-center gap-2 text-slate-500"
+                    }
+                  >
+                    {resetPasswordChecks.hasNumber ? (
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                    ) : (
+                      <XCircle className="h-3.5 w-3.5" />
+                    )}
+                    <p>Number (0-9)</p>
+                  </div>
+                  <div
+                    className={
+                      resetPasswordChecks.hasSpecial
+                        ? "flex items-center gap-2 text-emerald-600"
+                        : "flex items-center gap-2 text-slate-500"
+                    }
+                  >
+                    {resetPasswordChecks.hasSpecial ? (
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                    ) : (
+                      <XCircle className="h-3.5 w-3.5" />
+                    )}
+                    <p>Special character (!@#$...)</p>
+                  </div>
+                  <div
+                    className={
+                      resetPasswordChecks.hasAlphabet
+                        ? "flex items-center gap-2 text-emerald-600"
+                        : "flex items-center gap-2 text-slate-500"
+                    }
+                  >
+                    {resetPasswordChecks.hasAlphabet ? (
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                    ) : (
+                      <XCircle className="h-3.5 w-3.5" />
+                    )}
+                    <p>Alphabet character</p>
+                  </div>
+                  <div
+                    className={
+                      resetPassword.length >= 8
+                        ? "flex items-center gap-2 text-emerald-600"
+                        : "flex items-center gap-2 text-slate-500"
+                    }
+                  >
+                    {resetPassword.length >= 8 ? (
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                    ) : (
+                      <XCircle className="h-3.5 w-3.5" />
+                    )}
+                    <p>At least 8 characters</p>
+                  </div>
+                </div>
+
+                <Label htmlFor="confirmResetPassword">
+                  Confirm new password
                 </Label>
+                <div className="relative">
+                  <Input
+                    id="confirmResetPassword"
+                    type={showConfirmResetPassword ? "text" : "password"}
+                    placeholder="Re-enter your new password"
+                    value={confirmResetPassword}
+                    onChange={(e) => {
+                      setConfirmResetPassword(e.target.value);
+                      clearFieldError("confirmResetPassword");
+                    }}
+                    className={`h-11 pr-10 ${fieldErrors.confirmResetPassword ? "border-red-400 focus-visible:ring-red-300" : ""}`}
+                    autoComplete="new-password"
+                    disabled={loading}
+                  />
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setShowConfirmResetPassword(!showConfirmResetPassword)
+                    }
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                    tabIndex={-1}
+                  >
+                    {showConfirmResetPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </button>
+                </div>
+                {fieldErrors.confirmResetPassword &&
+                  fieldErrors.confirmResetPassword.trim() && (
+                    <motion.p
+                      initial={{ opacity: 0, y: -4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="text-xs text-red-500"
+                    >
+                      {fieldErrors.confirmResetPassword}
+                    </motion.p>
+                  )}
               </div>
-              <button
-                type="button"
-                className="text-sm text-primary hover:underline font-medium"
-              >
-                Forgot password?
-              </button>
-            </div>
+            )}
 
             {/* Submit */}
             <motion.div whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}>
@@ -388,13 +929,24 @@ export default function LoginPage() {
                 {loading ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                    Signing in…
+                    {loadingText}
                   </>
                 ) : (
-                  "Sign In"
+                  submitText
                 )}
               </Button>
             </motion.div>
+
+            {isForgotPasswordMode && (
+              <button
+                type="button"
+                onClick={resetForgotPasswordState}
+                className="w-full text-sm text-muted-foreground hover:text-foreground transition-colors"
+                disabled={loading}
+              >
+                Back to sign in
+              </button>
+            )}
           </form>
 
           <p className="mt-8 text-center text-xs text-muted-foreground">

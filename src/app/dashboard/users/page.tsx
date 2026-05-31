@@ -323,6 +323,9 @@ export default function UsersPage() {
   );
   const [empToggleLoading, setEmpToggleLoading] = useState(false);
   const [empFormLoading, setEmpFormLoading] = useState(false);
+  const [empDeleteTarget, setEmpDeleteTarget] =
+    useState<EmployeeRecord | null>(null);
+  const [empDeleteLoading, setEmpDeleteLoading] = useState(false);
 
   const defaultEmpForm = {
     name: "",
@@ -728,6 +731,39 @@ export default function UsersPage() {
       });
     } finally {
       setDeleteLoading(false);
+    }
+  };
+
+  // Employee delete (same endpoint as customer delete)
+  const handleDeleteEmployee = async () => {
+    if (!empDeleteTarget) return;
+    const token = getToken();
+    if (!token) return;
+    setEmpDeleteLoading(true);
+    try {
+      const params = new URLSearchParams({
+        userId: empDeleteTarget._id,
+        email: empDeleteTarget.email,
+      });
+      const res = await fetch(`${API_BASE}/user?${params}`, {
+        method: "DELETE",
+        headers: authHeaders(token),
+      });
+      if (!res.ok) throw new Error(`Server error (${res.status})`);
+      const json = await res.json();
+      if (!json.status) throw new Error(json.message || "Delete failed");
+      setEmployees((prev) => prev.filter((e) => e._id !== empDeleteTarget._id));
+      setEmpTotal((t) => t - 1);
+      toast({ title: "Employee deleted successfully" });
+      setEmpDeleteTarget(null);
+    } catch (err: unknown) {
+      toast({
+        title: "Delete failed",
+        description: err instanceof Error ? err.message : "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setEmpDeleteLoading(false);
     }
   };
 
@@ -1175,6 +1211,13 @@ export default function UsersPage() {
                                   <Play className="h-4 w-4" />
                                 )}
                               </button>
+                              <button
+                                onClick={() => setEmpDeleteTarget(emp)}
+                                className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                                title="Delete"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
                             </div>
                           </td>
                         </tr>
@@ -1551,6 +1594,58 @@ export default function UsersPage() {
                       <Loader2 className="h-4 w-4 animate-spin" />
                     )}
                     {empToggleTarget.isActive ? "Deactivate" : "Activate"}
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+          {empDeleteTarget && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
+              onClick={(e) => {
+                if (e.target === e.currentTarget && !empDeleteLoading)
+                  setEmpDeleteTarget(null);
+              }}
+            >
+              <motion.div
+                initial={{ scale: 0.95, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.95, opacity: 0 }}
+                className="bg-white rounded-xl shadow-2xl w-full max-w-sm p-6 text-center"
+              >
+                <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4">
+                  <Trash2 className="h-6 w-6 text-red-600" />
+                </div>
+                <h3 className="font-bold text-gray-900 text-lg mb-1">
+                  Delete Employee?
+                </h3>
+                <p className="text-sm text-gray-500 mb-6">
+                  Remove{" "}
+                  <span className="font-semibold text-gray-800">
+                    {empDeleteTarget.name}
+                  </span>{" "}
+                  ({empDeleteTarget.email})?
+                </p>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setEmpDeleteTarget(null)}
+                    disabled={empDeleteLoading}
+                    className="flex-1 h-10 border border-gray-200 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleDeleteEmployee}
+                    disabled={empDeleteLoading}
+                    className="flex-1 h-10 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {empDeleteLoading && (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    )}
+                    Delete
                   </button>
                 </div>
               </motion.div>

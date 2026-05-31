@@ -51,6 +51,7 @@ interface Banner {
   _id: string;
   image: string;
   url: string;
+  imageAltText?: string;
   isActive: boolean;
   insertedAt: number;
 }
@@ -697,6 +698,7 @@ function BannersTab() {
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [uploadForm, setUploadForm] = useState({ url: "", imageAltText: "" });
+  const [editTarget, setEditTarget] = useState<Banner | null>(null);
   const [filePreview, setFilePreview] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Banner | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -738,10 +740,27 @@ function BannersTab() {
   }, [loadBanners]);
 
   const openUpload = () => {
+    setEditTarget(null);
     setUploadForm({ url: "", imageAltText: "" });
     setFilePreview(null);
     if (fileRef.current) fileRef.current.value = "";
     setUploadOpen(true);
+  };
+
+  const openEdit = (banner: Banner) => {
+    setEditTarget(banner);
+    setUploadForm({
+      url: banner.url ?? "",
+      imageAltText: banner.imageAltText ?? "",
+    });
+    setFilePreview(banner.image || null);
+    if (fileRef.current) fileRef.current.value = "";
+    setUploadOpen(true);
+  };
+
+  const closeUploadModal = () => {
+    setUploadOpen(false);
+    setEditTarget(null);
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -767,7 +786,7 @@ function BannersTab() {
 
   const handleUploadSave = async () => {
     const file = fileRef.current?.files?.[0];
-    if (!file) {
+    if (!file && !editTarget) {
       toast({
         title: "Image required",
         description: "Please select an image to upload.",
@@ -782,35 +801,81 @@ function BannersTab() {
     }
     setSaving(true);
     try {
-      const fd = new FormData();
-      fd.append("images", file);
-      fd.append("url", uploadForm.url);
-      fd.append("imageAltText", uploadForm.imageAltText);
-      const res = await fetch(`${API_BASE}/carousel-pics`, {
-        method: "POST",
-        headers: {
-          authorization: `Bearer ${token}`,
-          "x-app-client": "ADMIN_PANEL",
-          accept: "application/json",
-        },
-        body: fd,
-      });
+      const res = editTarget
+        ? await (async () => {
+            if (file) {
+              const fd = new FormData();
+              fd.append("picId", editTarget._id);
+              fd.append("isActive", String(editTarget.isActive));
+              fd.append("url", uploadForm.url.trim());
+              fd.append("imageAltText", uploadForm.imageAltText.trim());
+              fd.append("images", file);
+
+              return fetch(`${API_BASE}/carousel-pics`, {
+                method: "PATCH",
+                headers: {
+                  authorization: `Bearer ${token}`,
+                  "x-app-client": "ADMIN_PANEL",
+                  accept: "application/json",
+                },
+                body: fd,
+              });
+            }
+
+            return fetch(`${API_BASE}/carousel-pics`, {
+              method: "PATCH",
+              headers: {
+                authorization: `Bearer ${token}`,
+                "x-app-client": "ADMIN_PANEL",
+                accept: "application/json",
+                "content-type": "application/json",
+              },
+              body: JSON.stringify({
+                picId: editTarget._id,
+                isActive: editTarget.isActive,
+                url: uploadForm.url.trim(),
+                imageAltText: uploadForm.imageAltText.trim(),
+              }),
+            });
+          })()
+        : await (async () => {
+            const fd = new FormData();
+            fd.append("url", uploadForm.url.trim());
+            fd.append("imageAltText", uploadForm.imageAltText.trim());
+            fd.append("images", file as File);
+
+            return fetch(`${API_BASE}/carousel-pics`, {
+              method: "POST",
+              headers: {
+                authorization: `Bearer ${token}`,
+                "x-app-client": "ADMIN_PANEL",
+                accept: "application/json",
+              },
+              body: fd,
+            });
+          })();
+
       if (res.status === 401) {
         router.push("/");
         return;
       }
-      if (!res.ok) throw new Error("Upload failed");
+      if (!res.ok)
+        throw new Error(editTarget ? "Update failed" : "Upload failed");
       await loadBanners();
-      setUploadOpen(false);
+      closeUploadModal();
       toast({
-        title: "Uploaded",
-        description: "Banner image uploaded successfully.",
+        title: editTarget ? "Updated" : "Uploaded",
+        description: editTarget
+          ? "Banner updated successfully."
+          : "Banner image uploaded successfully.",
         variant: "success" as any,
       });
     } catch {
       toast({
         title: "Error",
-        description: "Failed to upload banner.",
+        description: editTarget
+          ? "Failed to update banner."
+          : "Failed to upload banner.",
         variant: "destructive",
       });
     } finally {
@@ -973,6 +1038,13 @@ function BannersTab() {
                   <td className="px-4 py-3 text-right">
                     <div className="flex items-center justify-end gap-1">
                       <button
+                        onClick={() => openEdit(banner)}
+                        className="p-1.5 rounded-lg text-gray-400 hover:text-[#1a2b6b] hover:bg-[#1a2b6b]/10 transition-colors"
+                        title="Edit"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </button>
+                      <button
                         onClick={() => setDeleteTarget(banner)}
                         className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
                         title="Delete"
@@ -1029,8 +1101,8 @@ function BannersTab() {
       <AnimatePresence>
         {uploadOpen && (
           <Modal
-            title="Upload Banner Image"
-            onClose={() => setUploadOpen(false)}
+            title={editTarget ? "Edit Banner Image" : "Upload Banner Image"}
+            onClose={closeUploadModal}
           >
             <div className="p-6 space-y-4">
               <Field label="Redirect URL (optional)">
@@ -1050,12 +1122,19 @@ function BannersTab() {
                   placeholder="Describe the banner image…"
                   value={uploadForm.imageAltText}
                   onChange={(e) =>
-                    setUploadForm((f) => ({ ...f, imageAltText: e.target.value }))
+                    setUploadForm((f) => ({
+                      ...f,
+                      imageAltText: e.target.value,
+                    }))
                   }
                   className={inputCls}
                 />
               </Field>
-              <Field label="Banner Image *">
+              <Field
+                label={
+                  editTarget ? "Banner Image (optional)" : "Banner Image *"
+                }
+              >
                 <div
                   onClick={() => fileRef.current?.click()}
                   className="w-full aspect-video max-h-60 rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 flex items-center justify-center cursor-pointer hover:border-[#1a2b6b]/50 hover:bg-gray-100 transition-colors overflow-hidden"
@@ -1089,7 +1168,7 @@ function BannersTab() {
               </Field>
             </div>
             <ModalFooter
-              onCancel={() => setUploadOpen(false)}
+              onCancel={closeUploadModal}
               onSave={handleUploadSave}
               saving={saving}
             />
@@ -1734,17 +1813,27 @@ function RolesTab() {
     // Auto-commit any pending module selection the user forgot to click + on
     let finalPolicies = [...addedPolicies];
     if (selectedModule && selectedPermIds.length > 0) {
-      const modInfo = policyModules.find((m) => m.module.key === selectedModule);
+      const modInfo = policyModules.find(
+        (m) => m.module.key === selectedModule,
+      );
       if (modInfo) {
-        const exists = finalPolicies.find((p) => p.moduleKey === selectedModule);
+        const exists = finalPolicies.find(
+          (p) => p.moduleKey === selectedModule,
+        );
         if (exists) {
           finalPolicies = finalPolicies.map((p) =>
-            p.moduleKey === selectedModule ? { ...p, permIds: selectedPermIds } : p,
+            p.moduleKey === selectedModule
+              ? { ...p, permIds: selectedPermIds }
+              : p,
           );
         } else {
           finalPolicies = [
             ...finalPolicies,
-            { moduleKey: selectedModule, moduleLabel: modInfo.module.label, permIds: selectedPermIds },
+            {
+              moduleKey: selectedModule,
+              moduleLabel: modInfo.module.label,
+              permIds: selectedPermIds,
+            },
           ];
         }
       }
@@ -2029,76 +2118,80 @@ function RolesTab() {
                   </button>
                 </div>
                 {/* Module Permissions table — edit mode only */}
-                {editRole && <div>
-                  <p className="text-sm font-bold text-[#1a2b6b] mb-2">
-                    Module Permissions
-                  </p>
-                  <div className="border border-gray-200 rounded-lg overflow-hidden">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="bg-gray-50 border-b border-gray-200">
-                          <th className="text-left px-4 py-2.5 font-semibold text-gray-700 w-14">
-                            S.No
-                          </th>
-                          <th className="text-left px-4 py-2.5 font-semibold text-gray-700">
-                            Module
-                          </th>
-                          <th className="text-left px-4 py-2.5 font-semibold text-gray-700">
-                            Permissions
-                          </th>
-                          <th className="px-4 py-2.5 font-semibold text-gray-700 text-right">
-                            Action
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-100">
-                        {addedPolicies.length === 0 ? (
-                          <tr>
-                            <td
-                              colSpan={4}
-                              className="px-4 py-6 text-center text-xs text-gray-400"
-                            >
-                              No module permissions added yet.
-                            </td>
+                {editRole && (
+                  <div>
+                    <p className="text-sm font-bold text-[#1a2b6b] mb-2">
+                      Module Permissions
+                    </p>
+                    <div className="border border-gray-200 rounded-lg overflow-hidden">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="bg-gray-50 border-b border-gray-200">
+                            <th className="text-left px-4 py-2.5 font-semibold text-gray-700 w-14">
+                              S.No
+                            </th>
+                            <th className="text-left px-4 py-2.5 font-semibold text-gray-700">
+                              Module
+                            </th>
+                            <th className="text-left px-4 py-2.5 font-semibold text-gray-700">
+                              Permissions
+                            </th>
+                            <th className="px-4 py-2.5 font-semibold text-gray-700 text-right">
+                              Action
+                            </th>
                           </tr>
-                        ) : (
-                          addedPolicies.map((p, i) => {
-                            const modPerms =
-                              policyModules
-                                .find((m) => m.module.key === p.moduleKey)
-                                ?.permissions.filter((x) =>
-                                  p.permIds.includes(x._id),
-                                ) ?? [];
-                            return (
-                              <tr
-                                key={p.moduleKey}
-                                className="hover:bg-gray-50"
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                          {addedPolicies.length === 0 ? (
+                            <tr>
+                              <td
+                                colSpan={4}
+                                className="px-4 py-6 text-center text-xs text-gray-400"
                               >
-                                <td className="px-4 py-2.5 text-gray-500">
-                                  {i + 1}
-                                </td>
-                                <td className="px-4 py-2.5 font-medium text-gray-900">
-                                  {p.moduleLabel}
-                                </td>
-                                <td className="px-4 py-2.5 text-gray-600">
-                                  {modPerms.map((x) => x.label).join(", ")}
-                                </td>
-                                <td className="px-4 py-2.5 text-right">
-                                  <button
-                                    onClick={() => removeModuleRow(p.moduleKey)}
-                                    className="w-7 h-7 rounded-full bg-red-500 hover:bg-red-600 text-white flex items-center justify-center ml-auto transition-colors"
-                                  >
-                                    <Trash2 className="h-3.5 w-3.5" />
-                                  </button>
-                                </td>
-                              </tr>
-                            );
-                          })
-                        )}
-                      </tbody>
-                    </table>
+                                No module permissions added yet.
+                              </td>
+                            </tr>
+                          ) : (
+                            addedPolicies.map((p, i) => {
+                              const modPerms =
+                                policyModules
+                                  .find((m) => m.module.key === p.moduleKey)
+                                  ?.permissions.filter((x) =>
+                                    p.permIds.includes(x._id),
+                                  ) ?? [];
+                              return (
+                                <tr
+                                  key={p.moduleKey}
+                                  className="hover:bg-gray-50"
+                                >
+                                  <td className="px-4 py-2.5 text-gray-500">
+                                    {i + 1}
+                                  </td>
+                                  <td className="px-4 py-2.5 font-medium text-gray-900">
+                                    {p.moduleLabel}
+                                  </td>
+                                  <td className="px-4 py-2.5 text-gray-600">
+                                    {modPerms.map((x) => x.label).join(", ")}
+                                  </td>
+                                  <td className="px-4 py-2.5 text-right">
+                                    <button
+                                      onClick={() =>
+                                        removeModuleRow(p.moduleKey)
+                                      }
+                                      className="w-7 h-7 rounded-full bg-red-500 hover:bg-red-600 text-white flex items-center justify-center ml-auto transition-colors"
+                                    >
+                                      <Trash2 className="h-3.5 w-3.5" />
+                                    </button>
+                                  </td>
+                                </tr>
+                              );
+                            })
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
-                </div>}
+                )}
               </div>
               <ModalFooter
                 onCancel={closeModal}

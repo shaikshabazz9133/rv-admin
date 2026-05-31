@@ -2,8 +2,15 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
-import { Search, Star, ChevronLeft, ChevronRight } from "lucide-react";
+import {
+  Search,
+  Star,
+  ChevronLeft,
+  ChevronRight,
+  ChevronDown,
+} from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 
 // ─── Auth helper ──────────────────────────────────────────────────────────────
@@ -46,7 +53,15 @@ interface Review {
 
 // ─── Star Rating ──────────────────────────────────────────────────────────────
 
-function StarRating({ rating, max = 5 }: { rating: number; max?: number }) {
+function StarRating({
+  rating,
+  max = 5,
+  decimals = 1,
+}: {
+  rating: number;
+  max?: number;
+  decimals?: number;
+}) {
   return (
     <div className="flex items-center gap-0.5">
       {Array.from({ length: max }).map((_, i) => {
@@ -60,10 +75,45 @@ function StarRating({ rating, max = 5 }: { rating: number; max?: number }) {
         );
       })}
       <span className="ml-1.5 text-sm font-semibold text-gray-700">
-        {rating.toFixed(1)}
+        {rating.toFixed(decimals)}
       </span>
     </div>
   );
+}
+
+// Product thumbnail with relative-URL resolution + load-error fallback
+function ProductThumb({ src, alt }: { src?: string; alt?: string }) {
+  const [errored, setErrored] = useState(false);
+  const resolved = src
+    ? src.startsWith("http")
+      ? src
+      : `${BASE}${src.startsWith("/") ? "" : "/"}${src}`
+    : "";
+  if (!resolved || errored) {
+    return (
+      <div className="w-12 h-12 rounded-lg bg-gray-100 border border-gray-200 flex-shrink-0" />
+    );
+  }
+  return (
+    <img
+      src={resolved}
+      alt={alt ?? ""}
+      onError={() => setErrored(true)}
+      className="w-12 h-12 rounded-lg object-cover border border-gray-200 flex-shrink-0"
+    />
+  );
+}
+
+function formatReviewDate(ts: number) {
+  return new Date(ts).toLocaleString("en-AU", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  });
 }
 
 // ─── Pagination ───────────────────────────────────────────────────────────────
@@ -167,6 +217,17 @@ export default function ReviewsPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [totalRecords, setTotalRecords] = useState(0);
   const [avgRating, setAvgRating] = useState(0);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+
+  const toggleCollapse = (productId: string) => {
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(productId)) next.delete(productId);
+      else next.add(productId);
+      return next;
+    });
+  };
 
   const fetchReviews = useCallback(
     async (pageNo: number, pageSize: number) => {
@@ -211,6 +272,51 @@ export default function ReviewsPage() {
     setPage(1);
   };
 
+  // Toggle a review's active status
+  const handleToggleActive = async (review: Review) => {
+    const newActive = !review.isActive;
+    setTogglingId(review._id);
+    // Optimistic update
+    setReviews((prev) =>
+      prev.map((r) =>
+        r._id === review._id ? { ...r, isActive: newActive } : r,
+      ),
+    );
+    try {
+      const res = await fetch(`${BASE}/api/product/rating-status`, {
+        method: "PATCH",
+        headers: {
+          authorization: `Bearer ${getToken()}`,
+          "content-type": "application/json",
+          "x-app-client": "ADMIN_PANEL",
+          accept: "application/json",
+        },
+        body: JSON.stringify({ ratingId: review._id, isActive: newActive }),
+      });
+      if (!res.ok) throw new Error("Failed");
+      const json = await res.json();
+      if (json?.status === false)
+        throw new Error(json?.message || "Failed to update status");
+      toast({
+        title: newActive ? "Review activated" : "Review deactivated",
+      });
+    } catch {
+      // Revert on failure
+      setReviews((prev) =>
+        prev.map((r) =>
+          r._id === review._id ? { ...r, isActive: !newActive } : r,
+        ),
+      );
+      toast({
+        title: "Error",
+        description: "Could not update review status.",
+        variant: "destructive",
+      });
+    } finally {
+      setTogglingId(null);
+    }
+  };
+
   const filtered = reviews.filter((r) => {
     const q = search.toLowerCase();
     return (
@@ -219,6 +325,18 @@ export default function ReviewsPage() {
       r.user?.email?.toLowerCase().includes(q)
     );
   });
+
+  // Group reviews by product (preserving order)
+  const groups: { product: ReviewProduct; reviews: Review[] }[] = [];
+  const groupIndex = new Map<string, number>();
+  for (const r of filtered) {
+    const pid = r.product?._id ?? "unknown";
+    if (!groupIndex.has(pid)) {
+      groupIndex.set(pid, groups.length);
+      groups.push({ product: r.product, reviews: [] });
+    }
+    groups[groupIndex.get(pid)!].reviews.push(r);
+  }
 
   return (
     <motion.div
@@ -256,87 +374,107 @@ export default function ReviewsPage() {
           <div className="bg-white rounded-xl border border-gray-200 py-16 text-center text-gray-400">
             Loading reviews&hellip;
           </div>
-        ) : filtered.length === 0 ? (
+        ) : groups.length === 0 ? (
           <div className="bg-white rounded-xl border border-gray-200 py-16 text-center text-gray-400">
             No reviews found.
           </div>
         ) : (
-          filtered.map((review, idx) => (
-            <motion.div
-              key={review._id}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: idx * 0.04 }}
-              className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow"
-            >
-              <div className="flex flex-col sm:flex-row sm:items-center gap-3 p-4">
-                {/* Product Image */}
-                {review.product?.displayPic ? (
-                  <img
-                    src={review.product.displayPic}
-                    alt={review.product.name}
-                    className="w-12 h-12 rounded-lg object-cover border border-gray-200 flex-shrink-0"
+          groups.map((group, idx) => {
+            const pid = group.product?._id ?? "unknown";
+            const count = group.reviews.length;
+            const avg =
+              count > 0
+                ? group.reviews.reduce((s, r) => s + r.rating, 0) / count
+                : 0;
+            const isCollapsed = collapsed.has(pid);
+            return (
+              <motion.div
+                key={pid}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: idx * 0.04 }}
+                className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden"
+              >
+                {/* Product header */}
+                <button
+                  onClick={() => toggleCollapse(pid)}
+                  className="w-full flex items-center gap-3 p-4 text-left hover:bg-gray-50 transition-colors"
+                >
+                  <ProductThumb
+                    src={group.product?.displayPic}
+                    alt={group.product?.name}
                   />
-                ) : (
-                  <div className="w-12 h-12 rounded-lg bg-gray-100 border border-gray-200 flex-shrink-0" />
-                )}
-
-                {/* Main Content */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className="font-semibold text-gray-900 text-sm leading-snug truncate">
-                        {review.product?.name ?? "Unknown Product"}
-                      </p>
-                      <div className="flex items-center gap-2 mt-1 flex-wrap">
-                        <span className="text-xs text-gray-500">
-                          {review.user?.name ?? "Unknown User"}
-                        </span>
-                        {review.user?.email && (
-                          <>
-                            <span className="text-gray-300">&middot;</span>
-                            <span className="text-xs text-gray-400">
-                              {review.user.email}
-                            </span>
-                          </>
-                        )}
-                        <span className="text-gray-300">&middot;</span>
-                        <span className="text-xs text-gray-400">
-                          {new Date(review.insertedAt).toLocaleDateString(
-                            "en-AU",
-                            {
-                              day: "2-digit",
-                              month: "short",
-                              year: "numeric",
-                            },
-                          )}
-                        </span>
-                      </div>
-                      {review.review && (
-                        <p className="text-sm text-gray-600 mt-1.5 line-clamp-1">
-                          {review.review}
-                        </p>
-                      )}
-                    </div>
-
-                    {/* Right side */}
-                    <div className="flex flex-row sm:flex-col items-center sm:items-end gap-3 sm:gap-2 flex-shrink-0">
-                      <StarRating rating={review.rating} />
-                      <span
-                        className={`text-xs font-medium px-2.5 py-1 rounded-full ${
-                          review.isActive
-                            ? "bg-green-50 text-green-700 border border-green-200"
-                            : "bg-gray-50 text-gray-500 border border-gray-200"
-                        }`}
-                      >
-                        {review.isActive ? "Active" : "Inactive"}
-                      </span>
-                    </div>
+                  <p className="flex-1 min-w-0 font-semibold text-gray-900 leading-snug truncate">
+                    {group.product?.name ?? "Unknown Product"}
+                  </p>
+                  <div className="flex items-center gap-3 flex-shrink-0">
+                    <StarRating rating={avg} />
+                    <span className="text-sm text-gray-400">
+                      {count} review{count !== 1 ? "s" : ""}
+                    </span>
+                    <ChevronDown
+                      className={`h-4 w-4 text-gray-400 transition-transform ${isCollapsed ? "" : "rotate-180"}`}
+                    />
                   </div>
-                </div>
-              </div>
-            </motion.div>
-          ))
+                </button>
+
+                {/* Reviews */}
+                {!isCollapsed && (
+                  <div className="divide-y divide-gray-100 border-t border-gray-100">
+                    {group.reviews.map((review) => {
+                      const name = review.user?.name?.trim();
+                      const initial =
+                        name && name !== "-" ? name.charAt(0).toUpperCase() : "?";
+                      return (
+                        <div
+                          key={review._id}
+                          className="flex gap-3 p-4 bg-gray-50/40"
+                        >
+                          <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 font-semibold text-sm flex-shrink-0 self-center">
+                            {initial}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <p className="font-semibold text-gray-900 text-sm">
+                                  {name || "-"}
+                                </p>
+                                {review.user?.email && (
+                                  <p className="text-xs text-gray-400">
+                                    {review.user.email}
+                                  </p>
+                                )}
+                                {review.review && (
+                                  <p className="text-sm text-gray-700 mt-1.5">
+                                    {review.review}
+                                  </p>
+                                )}
+                                <p className="text-xs text-gray-400 mt-1.5">
+                                  Reviewed on: {formatReviewDate(review.insertedAt)}
+                                </p>
+                              </div>
+                              <div className="flex items-center gap-3 flex-shrink-0">
+                                <StarRating rating={review.rating} decimals={0} />
+                                <Switch
+                                  checked={review.isActive}
+                                  onCheckedChange={() =>
+                                    handleToggleActive(review)
+                                  }
+                                  disabled={togglingId === review._id}
+                                  className="data-[state=checked]:bg-blue-500"
+                                  aria-label="Toggle review visibility"
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </motion.div>
+            );
+          })
         )}
       </div>
 
