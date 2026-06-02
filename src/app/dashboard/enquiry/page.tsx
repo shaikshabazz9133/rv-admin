@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
+import SeoTab from "@/components/SeoTab";
 
 const API_BASE = "https://dev-backend.rvadventureaustralia.com.au/api";
 
@@ -392,8 +393,17 @@ export default function EnquiryPage() {
     <motion.div
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
-      className="p-4 sm:p-6"
+      className="p-4 sm:p-6 space-y-5"
     >
+      {/* SEO Details for Contact Us page */}
+      <div className="bg-white rounded-xl border border-gray-200 p-5">
+        <p className="text-sm font-semibold text-[#1a2b6b] mb-4">SEO Details — Contact Us</p>
+        <SeoTab
+          initialSlug="contact-us"
+          urlPrefix=""
+        />
+      </div>
+
       {/* Search bar */}
       <div className="mb-4">
         <div className="relative max-w-md">

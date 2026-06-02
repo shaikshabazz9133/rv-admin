@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
+import SeoTab, { type SeoTabHandle } from "@/components/SeoTab";
 
 const API_BASE = "https://dev-backend.rvadventureaustralia.com.au/api";
 
@@ -177,6 +178,7 @@ export default function BlogsPage() {
     "categories",
   );
   const [view, setView] = useState<"list" | "add" | "edit">("list");
+  const blogSeoRef = useRef<SeoTabHandle>(null);
 
   // ── Categories state ──
   const [categories, setCategories] = useState<Category[]>([]);
@@ -592,6 +594,7 @@ export default function BlogsPage() {
       if (!res.ok || json?.status === false)
         throw new Error((json?.message as string) || "Failed");
       toast({ title: `Blog ${editBlog ? "updated" : "added"} successfully` });
+      await blogSeoRef.current?.triggerSave();
       setEditBlog(null);
       setView("list");
       fetchBlogs(1, blogCatFilter, blogMonthFilter, blogPerPage);
@@ -1062,6 +1065,19 @@ export default function BlogsPage() {
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+        {/* SEO Details */}
+        <div className="px-6 pb-6">
+          <div className="bg-white rounded-xl border border-gray-200 p-5">
+            <p className="text-sm font-semibold text-[#1a2b6b] mb-4">SEO Details</p>
+            <SeoTab
+              ref={blogSeoRef}
+              key={editBlog?._id ?? "new-blog"}
+              productName={blogForm.title}
+              urlPrefix="/blog"
+              image={blogForm.imagePreview || undefined}
+            />
           </div>
         </div>
       </motion.div>

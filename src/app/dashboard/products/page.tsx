@@ -27,6 +27,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import SeoTab, { type SeoTabHandle } from "@/components/SeoTab";
 
 // â”€â”€â”€ Constants â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
@@ -453,6 +454,7 @@ export default function ProductsPage() {
   );
   const categoryImageRef = useRef<HTMLInputElement>(null);
   const categoryImageFileRef = useRef<File | null>(null);
+  const categorySeoRef = useRef<SeoTabHandle>(null);
 
   // â”€â”€ Debounce search
   useEffect(() => {
@@ -797,6 +799,7 @@ export default function ProductsPage() {
         }
         toast({ title: "Category added!" });
       }
+      await categorySeoRef.current?.triggerSave();
       setActiveTab("categories");
       setShowAddCategory(false);
       loadCategories();
@@ -1504,6 +1507,18 @@ export default function ProductsPage() {
                 </div>
               </div>
             </div>
+            {/* SEO Details */}
+            <div className="px-4 sm:px-6 pb-5 border-t border-gray-100 pt-5">
+              <p className="text-sm font-semibold text-[#1a2b6b] mb-4">SEO Details</p>
+              <SeoTab
+                ref={categorySeoRef}
+                key={editCategoryId ?? "new-category"}
+                productName={categoryForm.name}
+                urlPrefix="/category"
+                image={categoryForm.image || undefined}
+              />
+            </div>
+
             <div className="flex items-center justify-end gap-3 px-6 pb-5 border-t border-gray-100 pt-4">
               <Button
                 variant="outline"

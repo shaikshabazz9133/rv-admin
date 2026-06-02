@@ -38,6 +38,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
+import SeoTab, { type SeoTabHandle } from "@/components/SeoTab";
 
 const API_BASE = "https://dev-backend.rvadventureaustralia.com.au/api";
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -313,6 +314,7 @@ export default function SuppliersPage() {
   const [existingBanner, setExistingBanner] = useState("");
   const [formKey, setFormKey] = useState(0);
   const [page, setPage] = useState(1);
+  const supplierSeoRef = useRef<SeoTabHandle>(null);
   const [perPage, setPerPage] = useState(10);
   const { toast } = useToast();
 
@@ -487,6 +489,7 @@ export default function SuppliersPage() {
         description: `${form.name} has been ${editingId ? "updated" : "added"} successfully.`,
         variant: "success" as any,
       });
+      await supplierSeoRef.current?.triggerSave();
       setOpen(false);
       fetchSuppliers();
     } catch (err: any) {
@@ -973,6 +976,18 @@ export default function SuppliersPage() {
               </div>
             </div>
           </div>
+          {/* SEO Details */}
+          <div className="px-6 pb-5 border-t border-gray-100 pt-5">
+            <p className="text-sm font-semibold text-[#1a2b6b] mb-4">SEO Details</p>
+            <SeoTab
+              ref={supplierSeoRef}
+              key={editingId ?? "new-supplier"}
+              productName={form.name}
+              urlPrefix="/brands"
+              image={existingLogo || undefined}
+            />
+          </div>
+
           <DialogFooter className="px-6 py-4 border-t bg-gray-50 rounded-b-2xl gap-2">
             <Button
               variant="outline"

@@ -29,6 +29,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
+import SeoTab, { type SeoTabHandle } from "@/components/SeoTab";
 
 const API_BASE = "https://dev-backend.rvadventureaustralia.com.au/api";
 
@@ -58,6 +59,15 @@ const EDITOR_IDS = new Set([
   "address",
   "invoice",
 ]);
+
+// Fixed SEO slugs for static pages — keyed by tab ID
+const POLICY_SEO_SLUGS: Record<string, string> = {
+  about: "about-us",
+  privacy: "privacy-policy",
+  terms: "terms-and-conditions",
+  orders: "orders-and-returns",
+  spare: "spare-parts",
+};
 
 // --- Types ---
 
@@ -628,6 +638,7 @@ export default function FooterOptionsPage() {
   const { toast } = useToast();
   const router = useRouter();
   const [activeTab, setActiveTab] = useState("about");
+  const footerSeoRef = useRef<SeoTabHandle>(null);
 
   // Auth
   const getToken = useCallback(() => {
@@ -947,6 +958,7 @@ export default function FooterOptionsPage() {
           content: policyContent[activeTab] ?? "",
         },
       }));
+      await footerSeoRef.current?.triggerSave();
       setPolicySaved(true);
       setTimeout(() => setPolicySaved(false), 2500);
       toast({
@@ -1141,6 +1153,17 @@ export default function FooterOptionsPage() {
               }
             />
           )}
+          {POLICY_SEO_SLUGS[activeTab] && (
+            <div className="border-t border-gray-200 pt-5">
+              <p className="text-sm font-semibold text-[#1a2b6b] mb-4">SEO Details</p>
+              <SeoTab
+                ref={footerSeoRef}
+                key={POLICY_SEO_SLUGS[activeTab]}
+                initialSlug={POLICY_SEO_SLUGS[activeTab]}
+                urlPrefix=""
+              />
+            </div>
+          )}
         </div>
       );
     }
@@ -1235,6 +1258,15 @@ export default function FooterOptionsPage() {
                 )}
               </tbody>
             </table>
+          </div>
+          <div className="border-t border-gray-200 pt-5">
+            <p className="text-sm font-semibold text-[#1a2b6b] mb-4">SEO Details</p>
+            <SeoTab
+              ref={footerSeoRef}
+              key="spare-parts"
+              initialSlug="spare-parts"
+              urlPrefix=""
+            />
           </div>
         </div>
       );

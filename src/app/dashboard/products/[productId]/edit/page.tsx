@@ -23,6 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import SeoTab, { type SeoTabHandle } from "@/components/SeoTab";
 
 const API_BASE = "https://dev-backend.rvadventureaustralia.com.au/api";
 
@@ -1313,6 +1314,7 @@ export default function EditProductPage() {
   const productId = params.productId as string;
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const seoRef = useRef<SeoTabHandle>(null);
 
   // ── Loading states
   const [pageLoading, setPageLoading] = useState(true);
@@ -1371,7 +1373,6 @@ export default function EditProductPage() {
   // ── Images: unified list of existing URLs + new file uploads
   const [images, setImages] = useState<ImageSlot[]>([]);
   const [displayIdx, setDisplayIdx] = useState(0);
-  const [removedUrls, setRemovedUrls] = useState<string[]>([]);
 
   // ── Tab content
   const [activeTab, setActiveTab] = useState<
@@ -1381,12 +1382,14 @@ export default function EditProductPage() {
     | "related"
     | "accessories"
     | "ebayDescription"
+    | "seo"
   >("description");
   const [description, setDescription] = useState("");
   const [ebayDescription, setEbayDescription] = useState("");
   const [specRows, setSpecRows] = useState<string[][]>([[""]]);
   const [selectedRelated, setSelectedRelated] = useState<string[]>([]);
   const [selectedAccessories, setSelectedAccessories] = useState<string[]>([]);
+  const [productSlug, setProductSlug] = useState<string>("");
   const [ebayCategoryPath, setEbayCategoryPath] = useState<
     { id: string; name: string }[]
   >([]);
@@ -1514,6 +1517,9 @@ export default function EditProductPage() {
           // Description & eBay description
           setDescription(p.description ?? "");
           setEbayDescription(p.ebayDescription ?? "");
+
+          // SEO slug (used to load existing SEO details in the SEO tab)
+          setProductSlug(p.slug ?? "");
 
           // Specifications
           setSpecRows(normalizeSpecRows(p.specifications));
@@ -1655,11 +1661,7 @@ export default function EditProductPage() {
   // ── Remove an image slot
   const removeImage = (idx: number) => {
     const slot = images[idx];
-    if (slot.isExisting) {
-      setRemovedUrls((prev) => [...prev, slot.url]);
-    } else {
-      URL.revokeObjectURL(slot.url);
-    }
+    if (!slot.isExisting) URL.revokeObjectURL(slot.url);
     setImages((prev) => {
       const next = prev.filter((_, i) => i !== idx);
       if (displayIdx >= next.length)
@@ -1714,7 +1716,7 @@ export default function EditProductPage() {
     fd.append("weight", form.weight);
     fd.append("price", form.price);
     if (form.quantity) fd.append("quantity", form.quantity);
-    fd.append("categorie", [...cat1Ids, ...cat2Ids, ...cat3Ids].join(","));
+    fd.append("categories", cat3Ids.join(","));
     fd.append("supplier", form.supplierId);
     fd.append("skuCode", form.skuCode);
     fd.append("offerPrice", form.offerPrice);
@@ -1739,7 +1741,7 @@ export default function EditProductPage() {
     fd.append("hasFreeShipping", form.freeShipping || "false");
     fd.append("isActive", status === "active" ? "true" : "false");
 
-    // New display pic (only if a new file is selected as main)
+    // displayPic — new File if a new upload is selected as main, existing URL otherwise
     const displaySlot = images[displayIdx];
     if (displaySlot && !displaySlot.isExisting && displaySlot.file) {
       fd.append("displayPic", displaySlot.file, displaySlot.file.name);
@@ -1747,15 +1749,20 @@ export default function EditProductPage() {
       fd.append("displayPic", displaySlot.url);
     }
 
-    // New additional images
+    // images — single comma-separated string of all existing URLs still present
+    const existingUrls = images
+      .filter((slot) => slot.isExisting)
+      .map((slot) => slot.url)
+      .join(",");
+    if (existingUrls) fd.append("images", existingUrls);
+
+    // newImages — newly uploaded files that are not the selected displayPic
     images.forEach((slot, i) => {
       if (!slot.isExisting && slot.file && i !== displayIdx) {
-        fd.append("images", slot.file, slot.file.name);
+        fd.append("newImages", slot.file, slot.file.name);
       }
     });
 
-    // Images to remove
-    removedUrls.forEach((url) => fd.append("removeImages", url));
 
     // Accessories & related — comma-separated strings (empty string when none selected)
     fd.append("accessories", selectedAccessories.join(","));
@@ -1800,6 +1807,7 @@ export default function EditProductPage() {
         title: "Success",
         description: `Product ${status === "draft" ? "saved as draft" : "published"} successfully.`,
       });
+      await seoRef.current?.triggerSave();
       router.push("/dashboard/products");
     } catch (err: any) {
       toast({
@@ -1893,6 +1901,7 @@ export default function EditProductPage() {
     { key: "related", label: "Related Products" },
     { key: "accessories", label: "Accessories" },
     { key: "ebayDescription", label: "eBay Description" },
+    { key: "seo", label: "SEO" },
   ] as const;
 
   const mainPreviewUrl = images[displayIdx]?.url ?? "";
@@ -1981,8 +1990,7 @@ export default function EditProductPage() {
         <div className="flex-shrink-0 w-full lg:w-56 space-y-3">
           {/* Main preview */}
           <div
-            onClick={() => fileInputRef.current?.click()}
-            className="w-full aspect-square border-2 border-[#1a2b6b]/30 rounded-xl overflow-hidden bg-gray-50 relative cursor-pointer hover:border-[#1a2b6b]/60 transition-colors"
+            className="w-full aspect-square border-2 border-[#1a2b6b]/30 rounded-xl overflow-hidden bg-gray-50 relative"
           >
             {mainPreviewUrl ? (
               <img
@@ -1991,7 +1999,10 @@ export default function EditProductPage() {
                 className="w-full h-full object-contain p-3"
               />
             ) : (
-              <div className="w-full h-full flex flex-col items-center justify-center">
+              <div
+                onClick={() => fileInputRef.current?.click()}
+                className="w-full h-full flex flex-col items-center justify-center cursor-pointer hover:border-[#1a2b6b]/60 transition-colors"
+              >
                 <Plus className="h-10 w-10 text-gray-400" />
                 <p className="text-xs text-gray-400 mt-2">Click to upload</p>
               </div>
@@ -2467,6 +2478,14 @@ export default function EditProductPage() {
               onChange={setEbayDescription}
               placeholder="Enter eBay description..."
               initialValue={ebayDescription}
+            />
+          )}
+          {activeTab === "seo" && (
+            <SeoTab
+              ref={seoRef}
+              initialSlug={productSlug || undefined}
+              productName={form.name}
+              image={mainPreviewUrl || undefined}
             />
           )}
         </div>

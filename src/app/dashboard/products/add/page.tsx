@@ -13,6 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import SeoTab, { type SeoTabHandle } from "@/components/SeoTab";
 
 const API_BASE = "https://dev-backend.rvadventureaustralia.com.au/api";
 
@@ -985,6 +986,7 @@ export default function AddProductPage() {
   const router = useRouter();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const seoRef = useRef<SeoTabHandle>(null);
 
   // ── Loading states
   const [pageLoading, setPageLoading] = useState(true);
@@ -1044,6 +1046,7 @@ export default function AddProductPage() {
     | "related"
     | "accessories"
     | "ebayDescription"
+    | "seo"
   >("description");
   const [description, setDescription] = useState("");
   const [ebayDescription, setEbayDescription] = useState("");
@@ -1246,6 +1249,7 @@ export default function AddProductPage() {
         description: `Product ${status === "draft" ? "saved as draft" : "published"} successfully.`,
         variant: "success" as any,
       });
+      await seoRef.current?.triggerSave();
       router.push("/dashboard/products");
     } catch (err: any) {
       toast({
@@ -1275,6 +1279,7 @@ export default function AddProductPage() {
     { key: "related", label: "Related Products" },
     { key: "accessories", label: "Accessories" },
     { key: "ebayDescription", label: "eBay Description" },
+    { key: "seo", label: "SEO" },
   ] as const;
 
   return (
@@ -1861,6 +1866,9 @@ export default function AddProductPage() {
               onChange={setEbayDescription}
               placeholder="Enter eBay description..."
             />
+          )}
+          {activeTab === "seo" && (
+            <SeoTab ref={seoRef} productName={form.name} image={imagePreviews[displayImageIdx]} />
           )}
         </div>
       </div>
