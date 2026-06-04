@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { Plus, X, Loader2, Search, Trash2, ChevronLeft, ChevronRight, ChevronDown } from "lucide-react";
+import { Plus, X, Loader2, Search, Trash2, ChevronLeft, ChevronRight, ChevronDown, Check } from "lucide-react";
 import Link from "next/link";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -614,6 +614,110 @@ function Field({
   );
 }
 
+// ─── Multi-select dropdown (checkbox list) ───────────────────────────────────
+function MultiSelect({
+  options,
+  selected,
+  onChange,
+  placeholder = "Select...",
+  disabled,
+  error,
+}: {
+  options: { _id: string; name: string }[];
+  selected: string[];
+  onChange: (ids: string[]) => void;
+  placeholder?: string;
+  disabled?: boolean;
+  error?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node))
+        setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const toggle = (id: string) =>
+    onChange(
+      selected.includes(id)
+        ? selected.filter((x) => x !== id)
+        : [...selected, id],
+    );
+
+  const selectedOpts = options.filter((o) => selected.includes(o._id));
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => setOpen((o) => !o)}
+        className={`w-full min-h-10 px-2.5 py-1.5 text-sm text-left bg-white border rounded-md flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-[#1a2b6b]/20 focus:border-[#1a2b6b] ${
+          error ? "border-red-400" : "border-gray-300"
+        }`}
+      >
+        <span className="flex-1 flex flex-wrap gap-1">
+          {selectedOpts.length === 0 ? (
+            <span className="text-gray-400 py-0.5">{placeholder}</span>
+          ) : (
+            selectedOpts.map((o) => (
+              <span
+                key={o._id}
+                className="inline-flex items-center gap-1 bg-[#1a2b6b]/10 text-[#1a2b6b] text-xs font-medium px-2 py-0.5 rounded"
+              >
+                {o.name}
+                <X
+                  className="h-3 w-3 cursor-pointer hover:text-red-600"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggle(o._id);
+                  }}
+                />
+              </span>
+            ))
+          )}
+        </span>
+        <ChevronDown className="h-4 w-4 text-gray-400 shrink-0" />
+      </button>
+      {open && !disabled && (
+        <div className="absolute z-50 mt-1 w-full max-h-60 overflow-auto rounded-md border border-gray-200 bg-white shadow-lg py-1">
+          {options.length === 0 ? (
+            <p className="px-3 py-2 text-sm text-gray-400">No options</p>
+          ) : (
+            options.map((o) => {
+              const checked = selected.includes(o._id);
+              return (
+                <button
+                  type="button"
+                  key={o._id}
+                  onClick={() => toggle(o._id)}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-gray-50"
+                >
+                  <span
+                    className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${
+                      checked
+                        ? "bg-[#1a2b6b] border-[#1a2b6b]"
+                        : "border-gray-300"
+                    }`}
+                  >
+                    {checked && <Check className="h-3 w-3 text-white" />}
+                  </span>
+                  <span className="flex-1 text-gray-700">{o.name}</span>
+                </button>
+              );
+            })
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Specifications Tab ───────────────────────────────────────────────────────
 function SpecificationsTab({
   rows,
@@ -1027,9 +1131,6 @@ export default function AddProductPage() {
     weight: "",
     quantity: "",
     freeShipping: "",
-    cat1Id: "",
-    cat2Id: "",
-    cat3Id: "",
     displayPicAltText: "",
     imagesAltText: "",
   });
@@ -1058,14 +1159,57 @@ export default function AddProductPage() {
     { id: string; name: string }[]
   >([]);
 
-  // ── Derived category levels (flat list filtered by level + parent)
+  // ── Category multi-selections (L1 → L2 → L3)
+  const [cat1Ids, setCat1Ids] = useState<string[]>([]);
+  const [cat2Ids, setCat2Ids] = useState<string[]>([]);
+  const [cat3Ids, setCat3Ids] = useState<string[]>([]);
+
+  // ── Derived category options (L2 depends on selected L1, L3 on selected L2)
   const cat1Options = categories.filter((c) => c.level === 1 && c.isActive);
   const cat2Options = categories.filter(
-    (c) => c.level === 2 && c.isActive && c.parent?._id === form.cat1Id,
+    (c) =>
+      c.level === 2 &&
+      c.isActive &&
+      c.parent?._id &&
+      cat1Ids.includes(c.parent._id),
   );
   const cat3Options = categories.filter(
-    (c) => c.level === 3 && c.isActive && c.parent?._id === form.cat2Id,
+    (c) =>
+      c.level === 3 &&
+      c.isActive &&
+      c.parent?._id &&
+      cat2Ids.includes(c.parent._id),
   );
+
+  // Changing higher levels prunes now-invalid lower selections
+  const handleCat1Change = (ids: string[]) => {
+    setCat1Ids(ids);
+    const validCat2 = new Set(
+      categories
+        .filter((c) => c.level === 2 && c.parent && ids.includes(c.parent._id))
+        .map((c) => c._id),
+    );
+    const nextCat2 = cat2Ids.filter((id) => validCat2.has(id));
+    setCat2Ids(nextCat2);
+    const validCat3 = new Set(
+      categories
+        .filter(
+          (c) => c.level === 3 && c.parent && nextCat2.includes(c.parent._id),
+        )
+        .map((c) => c._id),
+    );
+    setCat3Ids((prev) => prev.filter((id) => validCat3.has(id)));
+  };
+
+  const handleCat2Change = (ids: string[]) => {
+    setCat2Ids(ids);
+    const validCat3 = new Set(
+      categories
+        .filter((c) => c.level === 3 && c.parent && ids.includes(c.parent._id))
+        .map((c) => c._id),
+    );
+    setCat3Ids((prev) => prev.filter((id) => validCat3.has(id)));
+  };
 
   // ── Set field helper
   const set = (key: string, value: string) =>
@@ -1133,7 +1277,7 @@ export default function AddProductPage() {
     if (!form.weight || isNaN(Number(form.weight)))
       e.weight = "Weight is required";
     if (!form.supplierId) e.supplierId = "Supplier is required";
-    if (!form.cat1Id) e.cat1Id = "Category 1L is required";
+    if (cat1Ids.length === 0) e.cat1Ids = "Category 1L is required";
     if (imageFiles.length === 0)
       e.displayImage = "At least one image is required";
     setErrors(e);
@@ -1151,7 +1295,7 @@ export default function AddProductPage() {
     form.supplierId !== "" &&
     form.weight !== "" &&
     !isNaN(Number(form.weight)) &&
-    form.cat1Id !== "" &&
+    cat1Ids.length > 0 &&
     imageFiles.length > 0;
 
   // ── Build multipart/form-data payload
@@ -1176,7 +1320,7 @@ export default function AddProductPage() {
     fd.append("weight", form.weight);
     fd.append("price", form.price);
     if (form.quantity) fd.append("quantity", form.quantity);
-    fd.append("categories", form.cat3Id || form.cat2Id || form.cat1Id);
+    fd.append("categories", cat3Ids.join(","));
     fd.append("supplier", form.supplierId);
     fd.append("skuCode", form.skuCode);
     fd.append("offerPrice", form.offerPrice);
@@ -1420,374 +1564,352 @@ export default function AddProductPage() {
           />
         </div>
 
-        {/* Form Fields */}
-        <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-x-5 gap-y-4">
-          {/* Row 1 */}
-          <Field label="Product Name" required error={errors.name}>
-            <input
-              value={form.name}
-              onChange={(e) => set("name", e.target.value)}
-              placeholder="Enter product name"
-              className={errors.name ? inputErrCls : inputCls}
-            />
-          </Field>
-          <Field label="Offer Price" required error={errors.offerPrice}>
-            <input
-              value={form.offerPrice}
-              onChange={(e) => set("offerPrice", e.target.value)}
-              placeholder="Enter offer price"
-              type="number"
-              min="0"
-              step="0.01"
-              className={errors.offerPrice ? numberInputErrCls : numberInputCls}
-            />
-          </Field>
+        {/* Form Fields — Product details (left) / eBay listing (right) */}
+        <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-x-5 gap-y-6">
+          {/* ── Product Details column ── */}
+          <div className="space-y-4">
+            <h3 className="text-sm font-bold text-[#1a2b6b] border-b border-gray-100 pb-2">
+              Product Details
+            </h3>
 
-          {/* Row 2 */}
-          <Field label="SKU code" required error={errors.skuCode}>
-            <input
-              value={form.skuCode}
-              onChange={(e) => set("skuCode", e.target.value)}
-              placeholder="Enter SKU code"
-              className={errors.skuCode ? inputErrCls : inputCls}
-            />
-          </Field>
-          <Field label="Barcode">
-            <input
-              value={form.barcode}
-              onChange={(e) => set("barcode", e.target.value)}
-              placeholder="Enter barcode (optional)"
-              className={inputCls}
-            />
-          </Field>
-
-          {/* Row 3 */}
-          <Field label="eBay Category">
-            <EbayCategoryPicker
-              token={token!}
-              value={form.ebayCategoryId}
-              valuePath={ebayCategoryPath}
-              onChange={(id, path) => {
-                set("ebayCategoryId", id);
-                setEbayCategoryPath(path);
-              }}
-            />
-          </Field>
-          <Field label="eBay EPID">
-            <input
-              value={form.ebayEPID}
-              onChange={(e) => set("ebayEPID", e.target.value)}
-              placeholder="Enter eBay EPID (optional)"
-              className={inputCls}
-            />
-          </Field>
-          <Field label="eBay Package Type">
-            <Select
-              value={form.ebayPackageType || undefined}
-              onValueChange={(v) => set("ebayPackageType", v)}
-            >
-              <SelectTrigger className="w-full h-10 text-sm border-gray-300 focus:ring-2 focus:ring-[#1a2b6b]/20 focus:border-[#1a2b6b]">
-                <SelectValue placeholder="Select package type..." />
-              </SelectTrigger>
-              <SelectContent>
-                {packageTypes.map((p) => (
-                  <SelectItem key={p} value={p}>{p}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </Field>
-
-          {/* Row 4 */}
-          <Field label="eBay Dimension Units">
-            <Select
-              value={form.ebayDimensionUnit || undefined}
-              onValueChange={(v) => set("ebayDimensionUnit", v)}
-            >
-              <SelectTrigger className="w-full h-10 text-sm border-gray-300 focus:ring-2 focus:ring-[#1a2b6b]/20 focus:border-[#1a2b6b]">
-                <SelectValue placeholder="Select dimension unit..." />
-              </SelectTrigger>
-              <SelectContent>
-                {dimensionUnits.map((d) => (
-                  <SelectItem key={d} value={d}>{d}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </Field>
-          <Field label="eBay Length">
-            <input
-              value={form.ebayLength}
-              onChange={(e) => set("ebayLength", e.target.value)}
-              placeholder="Length"
-              type="number"
-              min="0"
-              step="0.01"
-              className={numberInputCls}
-            />
-          </Field>
-
-          {/* Row 5 */}
-          <Field label="eBay Width">
-            <input
-              value={form.ebayWidth}
-              onChange={(e) => set("ebayWidth", e.target.value)}
-              placeholder="Width"
-              type="number"
-              min="0"
-              step="0.01"
-              className={numberInputCls}
-            />
-          </Field>
-          <Field label="eBay Height">
-            <input
-              value={form.ebayHeight}
-              onChange={(e) => set("ebayHeight", e.target.value)}
-              placeholder="Height"
-              type="number"
-              min="0"
-              step="0.01"
-              className={numberInputCls}
-            />
-          </Field>
-
-          {/* Row 6 */}
-          <Field label="eBay Name">
-            <input
-              value={form.ebayName}
-              onChange={(e) => set("ebayName", e.target.value)}
-              placeholder="eBay listing title"
-              className={inputCls}
-            />
-          </Field>
-          <Field label="eBay Price">
-            <input
-              value={form.ebayPrice}
-              onChange={(e) => set("ebayPrice", e.target.value)}
-              placeholder="eBay listing price"
-              type="number"
-              min="0"
-              step="0.01"
-              className={numberInputCls}
-            />
-          </Field>
-
-          {/* Row 7 */}
-          <Field label="eBay Payment Policy">
-            <Select
-              value={form.ebayPaymentPolicyId || undefined}
-              onValueChange={(v) => set("ebayPaymentPolicyId", v)}
-            >
-              <SelectTrigger className="w-full h-10 text-sm border-gray-300 focus:ring-2 focus:ring-[#1a2b6b]/20 focus:border-[#1a2b6b]">
-                <SelectValue placeholder="Select payment policy..." />
-              </SelectTrigger>
-              <SelectContent>
-                {paymentPolicies.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </Field>
-          <Field label="eBay Return Policy">
-            <Select
-              value={form.ebayReturnPolicyId || undefined}
-              onValueChange={(v) => set("ebayReturnPolicyId", v)}
-            >
-              <SelectTrigger className="w-full h-10 text-sm border-gray-300 focus:ring-2 focus:ring-[#1a2b6b]/20 focus:border-[#1a2b6b]">
-                <SelectValue placeholder="Select return policy..." />
-              </SelectTrigger>
-              <SelectContent>
-                {returnPolicies.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </Field>
-
-          {/* Row 8 */}
-          <Field label="eBay Shipping Policy">
-            <Select
-              value={form.ebayFulfillmentPolicyId || undefined}
-              onValueChange={(v) => set("ebayFulfillmentPolicyId", v)}
-            >
-              <SelectTrigger className="w-full h-10 text-sm border-gray-300 focus:ring-2 focus:ring-[#1a2b6b]/20 focus:border-[#1a2b6b]">
-                <SelectValue placeholder="Select shipping policy..." />
-              </SelectTrigger>
-              <SelectContent>
-                {fulfillmentPolicies.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </Field>
-          <Field label="Price" required error={errors.price}>
-            <input
-              value={form.price}
-              onChange={(e) => set("price", e.target.value)}
-              placeholder="Enter price (e.g. 199.99)"
-              type="number"
-              min="0"
-              step="0.01"
-              className={errors.price ? numberInputErrCls : numberInputCls}
-            />
-          </Field>
-
-          {/* Row 9 */}
-          <Field label="Select Supplier" required error={errors.supplierId}>
-            <Select
-              value={form.supplierId || undefined}
-              onValueChange={(v) => set("supplierId", v)}
-            >
-              <SelectTrigger
-                className={`w-full h-10 text-sm focus:ring-2 focus:ring-[#1a2b6b]/20 focus:border-[#1a2b6b] ${
-                  errors.supplierId ? "border-red-400" : "border-gray-300"
-                }`}
+            <Field label="Product Name" required error={errors.name}>
+              <input
+                value={form.name}
+                onChange={(e) => set("name", e.target.value)}
+                placeholder="Enter product name"
+                className={errors.name ? inputErrCls : inputCls}
+              />
+            </Field>
+            <Field label="SKU code" required error={errors.skuCode}>
+              <input
+                value={form.skuCode}
+                onChange={(e) => set("skuCode", e.target.value)}
+                placeholder="Enter SKU code"
+                className={errors.skuCode ? inputErrCls : inputCls}
+              />
+            </Field>
+            <Field label="Offer Price" required error={errors.offerPrice}>
+              <input
+                value={form.offerPrice}
+                onChange={(e) => set("offerPrice", e.target.value)}
+                placeholder="Enter offer price"
+                type="number"
+                min="0"
+                step="0.01"
+                className={
+                  errors.offerPrice ? numberInputErrCls : numberInputCls
+                }
+              />
+            </Field>
+            <Field label="Price" required error={errors.price}>
+              <input
+                value={form.price}
+                onChange={(e) => set("price", e.target.value)}
+                placeholder="Enter price (e.g. 199.99)"
+                type="number"
+                min="0"
+                step="0.01"
+                className={errors.price ? numberInputErrCls : numberInputCls}
+              />
+            </Field>
+            <Field label="Weight" required error={errors.weight}>
+              <input
+                value={form.weight}
+                onChange={(e) => set("weight", e.target.value)}
+                placeholder="Enter weight (e.g. 1.5)"
+                type="number"
+                min="0"
+                step="0.01"
+                className={errors.weight ? numberInputErrCls : numberInputCls}
+              />
+            </Field>
+            <Field label="Quantity">
+              <input
+                value={form.quantity}
+                onChange={(e) => set("quantity", e.target.value)}
+                placeholder="Enter quantity (integer)"
+                type="number"
+                min="0"
+                step="1"
+                className={numberInputCls}
+              />
+            </Field>
+            <Field label="Select Supplier" required error={errors.supplierId}>
+              <Select
+                value={form.supplierId || undefined}
+                onValueChange={(v) => set("supplierId", v)}
               >
-                <SelectValue placeholder="Select supplier..." />
-              </SelectTrigger>
-              <SelectContent>
-                {suppliers.map((s) => (
-                  <SelectItem key={s._id} value={s._id}>{s.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </Field>
-          <Field label="Weight" required error={errors.weight}>
-            <input
-              value={form.weight}
-              onChange={(e) => set("weight", e.target.value)}
-              placeholder="Enter weight (e.g. 1.5)"
-              type="number"
-              min="0"
-              step="0.01"
-              className={errors.weight ? numberInputErrCls : numberInputCls}
-            />
-          </Field>
-
-          {/* Row 10 */}
-          <Field label="Quantity">
-            <input
-              value={form.quantity}
-              onChange={(e) => set("quantity", e.target.value)}
-              placeholder="Enter quantity (integer)"
-              type="number"
-              min="0"
-              step="1"
-              className={numberInputCls}
-            />
-          </Field>
-          <Field label="Free Shipping">
-            <Select
-              value={form.freeShipping || undefined}
-              onValueChange={(v) => set("freeShipping", v)}
-            >
-              <SelectTrigger className="w-full h-10 text-sm border-gray-300 focus:ring-2 focus:ring-[#1a2b6b]/20 focus:border-[#1a2b6b]">
-                <SelectValue placeholder="Select..." />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="true">Yes</SelectItem>
-                <SelectItem value="false">No</SelectItem>
-              </SelectContent>
-            </Select>
-          </Field>
-          <Field label="Category 1L" required error={errors.cat1Id}>
-            <Select
-              value={form.cat1Id || undefined}
-              onValueChange={(v) => {
-                set("cat1Id", v);
-                set("cat2Id", "");
-                set("cat3Id", "");
-              }}
-            >
-              <SelectTrigger
-                className={`w-full h-10 text-sm focus:ring-2 focus:ring-[#1a2b6b]/20 focus:border-[#1a2b6b] ${
-                  errors.cat1Id ? "border-red-400" : "border-gray-300"
-                }`}
+                <SelectTrigger
+                  className={`w-full h-10 text-sm focus:ring-2 focus:ring-[#1a2b6b]/20 focus:border-[#1a2b6b] ${
+                    errors.supplierId ? "border-red-400" : "border-gray-300"
+                  }`}
+                >
+                  <SelectValue placeholder="Select supplier..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {suppliers.map((s) => (
+                    <SelectItem key={s._id} value={s._id}>
+                      {s.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+            <Field label="Free Shipping">
+              <Select
+                value={form.freeShipping || undefined}
+                onValueChange={(v) => set("freeShipping", v)}
               >
-                <SelectValue placeholder="Select category..." />
-              </SelectTrigger>
-              <SelectContent>
-                {cat1Options.map((c) => (
-                  <SelectItem key={c._id} value={c._id}>{c.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </Field>
-          <Field label="Category 2L">
-            <Select
-              value={form.cat2Id || undefined}
-              onValueChange={(v) => {
-                set("cat2Id", v);
-                set("cat3Id", "");
-              }}
-              disabled={!form.cat1Id || cat2Options.length === 0}
-            >
-              <SelectTrigger className="w-full h-10 text-sm border-gray-300 focus:ring-2 focus:ring-[#1a2b6b]/20 focus:border-[#1a2b6b] disabled:opacity-50">
-                <SelectValue placeholder="Select category..." />
-              </SelectTrigger>
-              <SelectContent>
-                {cat2Options.map((c) => (
-                  <SelectItem key={c._id} value={c._id}>{c.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </Field>
-          <Field label="Category 3L">
-            <Select
-              value={form.cat3Id || undefined}
-              onValueChange={(v) => set("cat3Id", v)}
-              disabled={!form.cat2Id || cat3Options.length === 0}
-            >
-              <SelectTrigger className="w-full h-10 text-sm border-gray-300 focus:ring-2 focus:ring-[#1a2b6b]/20 focus:border-[#1a2b6b] disabled:opacity-50">
-                <SelectValue placeholder="Select category..." />
-              </SelectTrigger>
-              <SelectContent>
-                {cat3Options.map((c) => (
-                  <SelectItem key={c._id} value={c._id}>{c.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </Field>
-
-          {/* Row — Display Pic Alt Text + Images Alt Text */}
-          <Field label="Display Pic Alt Text">
-            <input
-              value={form.displayPicAltText}
-              onChange={(e) => set("displayPicAltText", e.target.value)}
-              placeholder="Enter display picture alt text"
-              className={inputCls}
-            />
-          </Field>
-          <Field label="Images Alt Text">
-            <input
-              value={form.imagesAltText}
-              onChange={(e) => set("imagesAltText", e.target.value)}
-              placeholder="Enter gallery images alt text"
-              className={inputCls}
-            />
-          </Field>
-          {/* Display Picture */}
-          <Field label="Display Picture" required error={errors.displayImage}>
-            <Select
-              value={imageFiles.length === 0 ? undefined : String(displayImageIdx)}
-              onValueChange={(v) => setDisplayImageIdx(Number(v))}
-              disabled={imageFiles.length === 0}
-            >
-              <SelectTrigger
-                className={`w-full h-10 text-sm focus:ring-2 focus:ring-[#1a2b6b]/20 focus:border-[#1a2b6b] disabled:opacity-50 ${
-                  errors.displayImage ? "border-red-400" : "border-gray-300"
-                }`}
+                <SelectTrigger className="w-full h-10 text-sm border-gray-300 focus:ring-2 focus:ring-[#1a2b6b]/20 focus:border-[#1a2b6b]">
+                  <SelectValue placeholder="Select..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="true">Yes</SelectItem>
+                  <SelectItem value="false">No</SelectItem>
+                </SelectContent>
+              </Select>
+            </Field>
+            <Field label="Barcode">
+              <input
+                value={form.barcode}
+                onChange={(e) => set("barcode", e.target.value)}
+                placeholder="Enter barcode (optional)"
+                className={inputCls}
+              />
+            </Field>
+            <Field label="Category 1L" required error={errors.cat1Ids}>
+              <MultiSelect
+                options={cat1Options}
+                selected={cat1Ids}
+                onChange={handleCat1Change}
+                placeholder="Select categories..."
+                error={!!errors.cat1Ids}
+              />
+            </Field>
+            <Field label="Category 2L">
+              <MultiSelect
+                options={cat2Options}
+                selected={cat2Ids}
+                onChange={handleCat2Change}
+                placeholder="Select categories..."
+                disabled={cat1Ids.length === 0 || cat2Options.length === 0}
+              />
+            </Field>
+            <Field label="Category 3L">
+              <MultiSelect
+                options={cat3Options}
+                selected={cat3Ids}
+                onChange={setCat3Ids}
+                placeholder="Select categories..."
+                disabled={cat2Ids.length === 0 || cat3Options.length === 0}
+              />
+            </Field>
+            <Field label="Display Pic Alt Text">
+              <input
+                value={form.displayPicAltText}
+                onChange={(e) => set("displayPicAltText", e.target.value)}
+                placeholder="Enter display picture alt text"
+                className={inputCls}
+              />
+            </Field>
+            <Field label="Images Alt Text">
+              <input
+                value={form.imagesAltText}
+                onChange={(e) => set("imagesAltText", e.target.value)}
+                placeholder="Enter gallery images alt text"
+                className={inputCls}
+              />
+            </Field>
+            <Field label="Display Picture" required error={errors.displayImage}>
+              <Select
+                value={
+                  imageFiles.length === 0 ? undefined : String(displayImageIdx)
+                }
+                onValueChange={(v) => setDisplayImageIdx(Number(v))}
+                disabled={imageFiles.length === 0}
               >
-                <SelectValue placeholder="Upload an image first..." />
-              </SelectTrigger>
-              <SelectContent>
-                {imageFiles.map((file, i) => (
-                  <SelectItem key={i} value={String(i)}>
-                    Image {i + 1} ({file.name.substring(0, 20)})
-                    {i === displayImageIdx ? " (Main)" : ""}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </Field>
+                <SelectTrigger
+                  className={`w-full h-10 text-sm focus:ring-2 focus:ring-[#1a2b6b]/20 focus:border-[#1a2b6b] disabled:opacity-50 ${
+                    errors.displayImage ? "border-red-400" : "border-gray-300"
+                  }`}
+                >
+                  <SelectValue placeholder="Upload an image first..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {imageFiles.map((file, i) => (
+                    <SelectItem key={i} value={String(i)}>
+                      Image {i + 1} ({file.name.substring(0, 20)})
+                      {i === displayImageIdx ? " (Main)" : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+          </div>
+
+          {/* ── eBay Listing column ── */}
+          <div className="space-y-4">
+            <h3 className="text-sm font-bold text-[#1a2b6b] border-b border-gray-100 pb-2">
+              eBay Listing
+            </h3>
+
+            <Field label="eBay Category">
+              <EbayCategoryPicker
+                token={token!}
+                value={form.ebayCategoryId}
+                valuePath={ebayCategoryPath}
+                onChange={(id, path) => {
+                  set("ebayCategoryId", id);
+                  setEbayCategoryPath(path);
+                }}
+              />
+            </Field>
+            <Field label="eBay EPID">
+              <input
+                value={form.ebayEPID}
+                onChange={(e) => set("ebayEPID", e.target.value)}
+                placeholder="Enter eBay EPID (optional)"
+                className={inputCls}
+              />
+            </Field>
+            <Field label="eBay Package Type">
+              <Select
+                value={form.ebayPackageType || undefined}
+                onValueChange={(v) => set("ebayPackageType", v)}
+              >
+                <SelectTrigger className="w-full h-10 text-sm border-gray-300 focus:ring-2 focus:ring-[#1a2b6b]/20 focus:border-[#1a2b6b]">
+                  <SelectValue placeholder="Select package type..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {packageTypes.map((p) => (
+                    <SelectItem key={p} value={p}>
+                      {p}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+            <Field label="eBay Dimension Units">
+              <Select
+                value={form.ebayDimensionUnit || undefined}
+                onValueChange={(v) => set("ebayDimensionUnit", v)}
+              >
+                <SelectTrigger className="w-full h-10 text-sm border-gray-300 focus:ring-2 focus:ring-[#1a2b6b]/20 focus:border-[#1a2b6b]">
+                  <SelectValue placeholder="Select dimension unit..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {dimensionUnits.map((d) => (
+                    <SelectItem key={d} value={d}>
+                      {d}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+            <Field label="eBay Length">
+              <input
+                value={form.ebayLength}
+                onChange={(e) => set("ebayLength", e.target.value)}
+                placeholder="Length"
+                type="number"
+                min="0"
+                step="0.01"
+                className={numberInputCls}
+              />
+            </Field>
+            <Field label="eBay Width">
+              <input
+                value={form.ebayWidth}
+                onChange={(e) => set("ebayWidth", e.target.value)}
+                placeholder="Width"
+                type="number"
+                min="0"
+                step="0.01"
+                className={numberInputCls}
+              />
+            </Field>
+            <Field label="eBay Height">
+              <input
+                value={form.ebayHeight}
+                onChange={(e) => set("ebayHeight", e.target.value)}
+                placeholder="Height"
+                type="number"
+                min="0"
+                step="0.01"
+                className={numberInputCls}
+              />
+            </Field>
+            <Field label="eBay Name">
+              <input
+                value={form.ebayName}
+                onChange={(e) => set("ebayName", e.target.value)}
+                placeholder="eBay listing title"
+                className={inputCls}
+              />
+            </Field>
+            <Field label="eBay Price">
+              <input
+                value={form.ebayPrice}
+                onChange={(e) => set("ebayPrice", e.target.value)}
+                placeholder="eBay listing price"
+                type="number"
+                min="0"
+                step="0.01"
+                className={numberInputCls}
+              />
+            </Field>
+            <Field label="eBay Payment Policy">
+              <Select
+                value={form.ebayPaymentPolicyId || undefined}
+                onValueChange={(v) => set("ebayPaymentPolicyId", v)}
+              >
+                <SelectTrigger className="w-full h-10 text-sm border-gray-300 focus:ring-2 focus:ring-[#1a2b6b]/20 focus:border-[#1a2b6b]">
+                  <SelectValue placeholder="Select payment policy..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {paymentPolicies.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+            <Field label="eBay Return Policy">
+              <Select
+                value={form.ebayReturnPolicyId || undefined}
+                onValueChange={(v) => set("ebayReturnPolicyId", v)}
+              >
+                <SelectTrigger className="w-full h-10 text-sm border-gray-300 focus:ring-2 focus:ring-[#1a2b6b]/20 focus:border-[#1a2b6b]">
+                  <SelectValue placeholder="Select return policy..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {returnPolicies.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+            <Field label="eBay Shipping Policy">
+              <Select
+                value={form.ebayFulfillmentPolicyId || undefined}
+                onValueChange={(v) => set("ebayFulfillmentPolicyId", v)}
+              >
+                <SelectTrigger className="w-full h-10 text-sm border-gray-300 focus:ring-2 focus:ring-[#1a2b6b]/20 focus:border-[#1a2b6b]">
+                  <SelectValue placeholder="Select shipping policy..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {fulfillmentPolicies.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+          </div>
         </div>
       </div>
 
