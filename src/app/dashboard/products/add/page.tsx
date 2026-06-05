@@ -947,6 +947,13 @@ function EbayCategoryPicker({
               </span>
             </>
           ))}
+          <button
+            type="button"
+            onClick={() => onChange("", [])}
+            className="ml-1 inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50 transition-colors"
+          >
+            <X className="h-3 w-3" /> Clear
+          </button>
         </div>
       )}
 
@@ -1154,7 +1161,6 @@ export default function AddProductPage() {
   const [specRows, setSpecRows] = useState<string[][]>([[""]]);
   const [selectedRelated, setSelectedRelated] = useState<string[]>([]);
   const [selectedAccessories, setSelectedAccessories] = useState<string[]>([]);
-  const [selectedReviews, setSelectedReviews] = useState<string[]>([]);
   const [ebayCategoryPath, setEbayCategoryPath] = useState<
     { id: string; name: string }[]
   >([]);
@@ -1258,11 +1264,13 @@ export default function AddProductPage() {
 
   // ── Image upload (collect files locally, preview with object URLs)
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const previewUrl = URL.createObjectURL(file);
-    setImageFiles((prev) => [...prev, file]);
-    setImagePreviews((prev) => [...prev, previewUrl]);
+    const files = Array.from(e.target.files ?? []).filter((f) =>
+      f.type.startsWith("image/"),
+    );
+    if (files.length === 0) return;
+    const previewUrls = files.map((f) => URL.createObjectURL(f));
+    setImageFiles((prev) => [...prev, ...files]);
+    setImagePreviews((prev) => [...prev, ...previewUrls]);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -1559,6 +1567,7 @@ export default function AddProductPage() {
             ref={fileInputRef}
             type="file"
             accept="image/*"
+            multiple
             onChange={handleImageUpload}
             className="hidden"
           />
@@ -1945,17 +1954,9 @@ export default function AddProductPage() {
             <SpecificationsTab rows={specRows} setRows={setSpecRows} />
           )}
           {activeTab === "reviews" && (
-            <ProductSearchTab
-              token={token}
-              selected={selectedReviews}
-              onToggle={(id) =>
-                setSelectedReviews((prev) =>
-                  prev.includes(id)
-                    ? prev.filter((x) => x !== id)
-                    : [...prev, id],
-                )
-              }
-            />
+            <p className="text-center text-sm text-gray-400 py-8">
+              Reviews will be available once the product is created.
+            </p>
           )}
           {activeTab === "related" && (
             <ProductSearchTab

@@ -1085,6 +1085,13 @@ function EbayCategoryPicker({
               </span>
             </>
           ))}
+          <button
+            type="button"
+            onClick={() => onChange("", [])}
+            className="ml-1 inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50 transition-colors"
+          >
+            <X className="h-3 w-3" /> Clear
+          </button>
         </div>
       )}
       {open && (
@@ -1648,13 +1655,16 @@ export default function EditProductPage() {
 
   // ── Image upload
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const previewUrl = URL.createObjectURL(file);
-    setImages((prev) => [
-      ...prev,
-      { url: previewUrl, file, isExisting: false },
-    ]);
+    const files = Array.from(e.target.files ?? []).filter((f) =>
+      f.type.startsWith("image/"),
+    );
+    if (files.length === 0) return;
+    const slots = files.map((file) => ({
+      url: URL.createObjectURL(file),
+      file,
+      isExisting: false,
+    }));
+    setImages((prev) => [...prev, ...slots]);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -1808,7 +1818,8 @@ export default function EditProductPage() {
         description: `Product ${status === "draft" ? "saved as draft" : "published"} successfully.`,
       });
       await seoRef.current?.triggerSave();
-      router.push("/dashboard/products");
+      // "Save to Prod" (active) stays on the page; draft saves return to the list.
+      if (status === "draft") router.push("/dashboard/products");
     } catch (err: any) {
       toast({
         title: "Error",
@@ -2066,6 +2077,7 @@ export default function EditProductPage() {
             ref={fileInputRef}
             type="file"
             accept="image/*"
+            multiple
             onChange={handleImageUpload}
             className="hidden"
           />

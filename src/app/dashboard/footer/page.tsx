@@ -532,10 +532,12 @@ function Modal({
   title,
   onClose,
   children,
+  maxWidthClass = "max-w-lg",
 }: {
   title: string;
   onClose: () => void;
   children: React.ReactNode;
+  maxWidthClass?: string;
 }) {
   return (
     <motion.div
@@ -551,9 +553,9 @@ function Modal({
         initial={{ scale: 0.95, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.95, opacity: 0 }}
-        className="bg-white rounded-xl shadow-2xl w-full max-w-lg"
+        className={`bg-white rounded-xl shadow-2xl w-full ${maxWidthClass} flex flex-col max-h-[90vh]`}
       >
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
           <h3 className="text-base font-bold text-[#1a2b6b]">{title}</h3>
           <button
             onClick={onClose}
@@ -639,6 +641,7 @@ export default function FooterOptionsPage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState("about");
   const footerSeoRef = useRef<SeoTabHandle>(null);
+  const spareSeoRef = useRef<SeoTabHandle>(null);
 
   // Auth
   const getToken = useCallback(() => {
@@ -1003,6 +1006,7 @@ export default function FooterOptionsPage() {
       if (!res.ok) throw new Error(`Server error (${res.status})`);
       const json = await res.json();
       if (!json.status) throw new Error(json.message || "Save failed");
+      await spareSeoRef.current?.triggerSave();
       setSpareOpen(false);
       toast({
         title: editingSpare ? "Spare part updated" : "Spare part added",
@@ -1259,15 +1263,6 @@ export default function FooterOptionsPage() {
               </tbody>
             </table>
           </div>
-          <div className="border-t border-gray-200 pt-5">
-            <p className="text-sm font-semibold text-[#1a2b6b] mb-4">SEO Details</p>
-            <SeoTab
-              ref={footerSeoRef}
-              key="spare-parts"
-              initialSlug="spare-parts"
-              urlPrefix=""
-            />
-          </div>
         </div>
       );
     }
@@ -1416,11 +1411,12 @@ export default function FooterOptionsPage() {
         {spareOpen && (
           <Modal
             title={editingSpare ? "Edit Spare Part" : "Add New Spare Part"}
+            maxWidthClass="max-w-2xl"
             onClose={() => {
               if (!spareSaving) setSpareOpen(false);
             }}
           >
-            <div className="p-6 space-y-4">
+            <div className="p-6 space-y-4 overflow-y-auto min-h-0">
               <div>
                 <label className="block text-sm font-bold text-[#1a2b6b] mb-2">
                   Spare Part Name
@@ -1449,8 +1445,19 @@ export default function FooterOptionsPage() {
                   className="w-full h-10 px-3 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-[#1a2b6b]/20 focus:border-[#1a2b6b] transition-colors"
                 />
               </div>
+              <div className="border-t border-gray-200 pt-4">
+                <p className="text-sm font-semibold text-[#1a2b6b] mb-4">
+                  SEO Details
+                </p>
+                <SeoTab
+                  ref={spareSeoRef}
+                  key={editingSpare?._id ?? "new-spare"}
+                  productName={spareForm.name}
+                  urlPrefix=""
+                />
+              </div>
             </div>
-            <div className="flex items-center justify-end gap-3 px-6 pb-6">
+            <div className="flex items-center justify-end gap-3 px-6 pb-6 pt-2 shrink-0 border-t border-gray-100">
               <button
                 onClick={() => setSpareOpen(false)}
                 disabled={spareSaving}
