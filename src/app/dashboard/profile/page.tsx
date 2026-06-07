@@ -594,10 +594,10 @@ export default function ProfilePage() {
               <h2 className="text-xl font-bold">{displayName}</h2>
               <p className="text-sm text-white/80">{profile?.email}</p>
               <div className="mt-2 flex flex-wrap items-center justify-center gap-2 sm:justify-start">
-                <span className="inline-flex items-center gap-1 rounded-full bg-white/20 px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide text-white">
+                {/* <span className="inline-flex items-center gap-1 rounded-full bg-white/20 px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide text-white">
                   <ShieldCheck className="h-3.5 w-3.5" />
                   {roleName}
-                </span>
+                </span> */}
                 <span
                   className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
                     profile?.isActive
@@ -815,75 +815,6 @@ export default function ProfilePage() {
           </div>
         </motion.div>
       </div>
-
-      {/* Addresses */}
-      <motion.div
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.2, delay: 0.05 }}
-        className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm"
-      >
-        <div className="flex items-center gap-2 border-b border-gray-100 px-6 py-4">
-          <MapPin className="h-4 w-4 text-[#1a2b6b]" />
-          <h2 className="text-base font-semibold text-gray-900">
-            Saved Addresses
-          </h2>
-          {addresses.length > 0 && (
-            <span className="ml-auto rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
-              {addresses.length}
-            </span>
-          )}
-        </div>
-
-        {addresses.length === 0 ? (
-          <div className="flex flex-col items-center justify-center gap-2 px-6 py-10 text-center">
-            <MapPin className="h-8 w-8 text-gray-300" />
-            <p className="text-sm text-gray-500">No saved addresses yet.</p>
-          </div>
-        ) : (
-          <div className="grid gap-4 p-6 sm:grid-cols-2">
-            {addresses.map((addr, i) => (
-              <div
-                key={addr._id ?? i}
-                className="rounded-xl border border-gray-200 bg-gray-50/60 p-4"
-              >
-                <div className="mb-2 flex items-center gap-2">
-                  <span className="text-sm font-semibold text-gray-900">
-                    {addr.label || addr.name || `Address ${i + 1}`}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => openAddressEditor(addr)}
-                    disabled={!addr._id}
-                    className="ml-auto inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-[#1a2b6b] hover:bg-[#1a2b6b]/10 disabled:opacity-40"
-                    aria-label="Edit address"
-                  >
-                    <Pencil className="h-3.5 w-3.5" /> Edit
-                  </button>
-                </div>
-                {addr.name && (
-                  <p className="text-sm text-gray-700">{addr.name}</p>
-                )}
-                {(addr.countryCode || addr.mobile) && (
-                  <p className="text-sm text-gray-500">
-                    {addr.countryCode} {addr.mobile}
-                  </p>
-                )}
-                <p className="mt-1 text-sm leading-relaxed text-gray-600">
-                  {[
-                    addr.line1,
-                    addr.line2,
-                    [addr.city, addr.state].filter(Boolean).join(", "),
-                    addr.postalCode,
-                  ]
-                    .filter(Boolean)
-                    .join(", ") || "—"}
-                </p>
-              </div>
-            ))}
-          </div>
-        )}
-      </motion.div>
 
       {/* Address Edit Modal */}
       {editingAddressId && (

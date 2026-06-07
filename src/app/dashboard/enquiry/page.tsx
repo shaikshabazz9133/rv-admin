@@ -396,13 +396,13 @@ export default function EnquiryPage() {
       className="p-4 sm:p-6 space-y-5"
     >
       {/* SEO Details for Contact Us page */}
-      <div className="bg-white rounded-xl border border-gray-200 p-5">
+      {/* <div className="bg-white rounded-xl border border-gray-200 p-5">
         <p className="text-sm font-semibold text-[#1a2b6b] mb-4">SEO Details — Contact Us</p>
         <SeoTab
           initialSlug="contact-us"
           urlPrefix=""
         />
-      </div>
+      </div> */}
 
       {/* Search bar */}
       <div className="mb-4">

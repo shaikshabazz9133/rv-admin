@@ -19,6 +19,11 @@ export const metadata: Metadata = {
   title: "RV Adventure Australia — Admin",
   description:
     "Admin panel for RV Adventure Australia caravan and camping accessories store",
+  icons: {
+    icon: "/fev_icon.png",
+    shortcut: "/fev_icon.png",
+    apple: "/fev_icon.png",
+  },
 };
 
 export default function RootLayout({

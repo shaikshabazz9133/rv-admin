@@ -14,8 +14,10 @@ import {
   Play,
   X,
   Loader2,
+  SlidersHorizontal,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -68,7 +70,181 @@ interface ApiProduct {
   quantity?: number;
   supplier?: { _id: string; name: string };
   category?: { _id: string; name: string };
+  barcode?: string;
+  recommended?: boolean;
+  bestSelling?: boolean;
+  ebayPrice?: number;
+  ebayCategoryId?: string;
 }
+
+// â”€â”€â”€ Product table columns (toggleable via dropdown) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Image / Product Name / Actions are always shown. Everything below is optional;
+// the columns marked defaultVisible reproduce the original table layout.
+
+type ColumnKey =
+  | "supplier"
+  | "skuCode"
+  | "quantity"
+  | "weight"
+  | "price"
+  | "offerPrice"
+  | "status"
+  | "barcode"
+  | "category"
+  | "recommended"
+  | "bestSelling"
+  | "ebayPrice"
+  | "ebayCategoryId";
+
+interface ProductColumn {
+  key: ColumnKey;
+  label: string;
+  defaultVisible: boolean;
+  headerClassName: string;
+  cellClassName: string;
+  render: (p: ApiProduct) => React.ReactNode;
+}
+
+const PRODUCT_COLUMNS: ProductColumn[] = [
+  {
+    key: "supplier",
+    label: "Supplier Name",
+    defaultVisible: true,
+    headerClassName:
+      "text-left px-3 py-3 font-semibold text-gray-700 whitespace-nowrap",
+    cellClassName: "px-3 py-3 text-gray-600",
+    render: (p) => p.supplier?.name ?? "—",
+  },
+  {
+    key: "skuCode",
+    label: "SKU Code",
+    defaultVisible: true,
+    headerClassName:
+      "text-left px-3 py-3 font-semibold text-gray-700 whitespace-nowrap",
+    cellClassName: "px-3 py-3 text-gray-600",
+    render: (p) => p.skuCode ?? "—",
+  },
+  {
+    key: "quantity",
+    label: "Available Quantity",
+    defaultVisible: true,
+    headerClassName:
+      "text-center px-3 py-3 font-semibold text-[#1a2b6b] whitespace-nowrap",
+    cellClassName: "px-3 py-3 text-gray-600 text-center",
+    render: (p) => p.quantity ?? "—",
+  },
+  {
+    key: "weight",
+    label: "Weight",
+    defaultVisible: true,
+    headerClassName:
+      "text-left px-3 py-3 font-semibold text-[#1a2b6b] whitespace-nowrap",
+    cellClassName: "px-3 py-3 text-gray-600",
+    render: (p) => (p.weight != null ? `${p.weight} kg` : "—"),
+  },
+  {
+    key: "price",
+    label: "Price",
+    defaultVisible: true,
+    headerClassName:
+      "text-left px-3 py-3 font-semibold text-[#1a2b6b] whitespace-nowrap",
+    cellClassName: "px-3 py-3 text-gray-800 whitespace-nowrap",
+    render: (p) => (p.price != null ? `$ ${p.price}` : "—"),
+  },
+  {
+    key: "offerPrice",
+    label: "Offer Price",
+    defaultVisible: true,
+    headerClassName:
+      "text-left px-3 py-3 font-semibold text-[#1a2b6b] whitespace-nowrap",
+    cellClassName: "px-3 py-3 text-gray-800 whitespace-nowrap",
+    render: (p) => (p.offerPrice != null ? `$ ${p.offerPrice}` : "—"),
+  },
+  {
+    key: "status",
+    label: "Status",
+    defaultVisible: true,
+    headerClassName: "text-left px-3 py-3 font-semibold text-gray-700",
+    cellClassName: "px-3 py-3",
+    render: (p) => (
+      <span
+        className={`text-xs font-medium ${p.isActive ? "text-green-600" : "text-gray-400"}`}
+      >
+        {p.isActive ? "Active" : "Paused"}
+      </span>
+    ),
+  },
+  {
+    key: "barcode",
+    label: "Barcode",
+    defaultVisible: false,
+    headerClassName:
+      "text-left px-3 py-3 font-semibold text-gray-700 whitespace-nowrap",
+    cellClassName: "px-3 py-3 text-gray-600 whitespace-nowrap",
+    render: (p) => p.barcode || "—",
+  },
+  {
+    key: "category",
+    label: "Categories",
+    defaultVisible: false,
+    headerClassName:
+      "text-left px-3 py-3 font-semibold text-gray-700 whitespace-nowrap",
+    cellClassName: "px-3 py-3 text-gray-600",
+    render: (p) => p.category?.name ?? "—",
+  },
+  {
+    key: "recommended",
+    label: "Recommended",
+    defaultVisible: false,
+    headerClassName:
+      "text-left px-3 py-3 font-semibold text-gray-700 whitespace-nowrap",
+    cellClassName: "px-3 py-3",
+    render: (p) => (
+      <span
+        className={`text-xs font-medium ${p.recommended ? "text-green-600" : "text-gray-400"}`}
+      >
+        {p.recommended ? "Yes" : "No"}
+      </span>
+    ),
+  },
+  {
+    key: "bestSelling",
+    label: "Best Selling",
+    defaultVisible: false,
+    headerClassName:
+      "text-left px-3 py-3 font-semibold text-gray-700 whitespace-nowrap",
+    cellClassName: "px-3 py-3",
+    render: (p) => (
+      <span
+        className={`text-xs font-medium ${p.bestSelling ? "text-green-600" : "text-gray-400"}`}
+      >
+        {p.bestSelling ? "Yes" : "No"}
+      </span>
+    ),
+  },
+  {
+    key: "ebayPrice",
+    label: "eBay Price",
+    defaultVisible: false,
+    headerClassName:
+      "text-left px-3 py-3 font-semibold text-[#1a2b6b] whitespace-nowrap",
+    cellClassName: "px-3 py-3 text-gray-800 whitespace-nowrap",
+    render: (p) => (p.ebayPrice != null ? `$ ${p.ebayPrice}` : "—"),
+  },
+  {
+    key: "ebayCategoryId",
+    label: "eBay Category ID",
+    defaultVisible: false,
+    headerClassName:
+      "text-left px-3 py-3 font-semibold text-[#1a2b6b] whitespace-nowrap",
+    cellClassName: "px-3 py-3 text-gray-600 whitespace-nowrap",
+    render: (p) => p.ebayCategoryId || "—",
+  },
+];
+
+const DEFAULT_VISIBLE_COLUMNS = PRODUCT_COLUMNS.filter(
+  (c) => c.defaultVisible,
+).map((c) => c.key);
 
 interface Category {
   id: number;
@@ -76,6 +252,7 @@ interface Category {
   name: string;
   level: "L1" | "L2" | "L3";
   parentCategory: string;
+  productsCount: number;
   status: "Active" | "Paused";
   children?: Category[];
   expanded?: boolean;
@@ -340,10 +517,13 @@ function CategoryRows({
               </div>
             </td>
             <td className="px-4 py-3 text-gray-600 text-sm hidden sm:table-cell">
-              {cat.level || "â€”"}
+              {cat.level || "—"}
             </td>
             <td className="px-4 py-3 text-gray-600 text-sm hidden md:table-cell">
-              {cat.parentCategory || "â€”"}
+              {cat.parentCategory || "—"}
+            </td>
+            <td className="px-4 py-3 text-gray-600 text-sm">
+              {cat.productsCount}
             </td>
             <td className="px-4 py-3 hidden sm:table-cell">
               <span
@@ -423,6 +603,22 @@ export default function ProductsPage() {
   const [deletingProduct, setDeletingProduct] = useState(false);
   const [togglingId, setTogglingId] = useState<string | null>(null);
 
+  // â”€â”€ Dynamic table columns
+  const [visibleColumns, setVisibleColumns] = useState<ColumnKey[]>(
+    DEFAULT_VISIBLE_COLUMNS,
+  );
+  const [columnsMenuOpen, setColumnsMenuOpen] = useState(false);
+  const columnsMenuRef = useRef<HTMLDivElement>(null);
+
+  const activeColumns = PRODUCT_COLUMNS.filter((c) =>
+    visibleColumns.includes(c.key),
+  );
+
+  const toggleColumn = (key: ColumnKey) =>
+    setVisibleColumns((prev) =>
+      prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key],
+    );
+
   // -- Categories state
   const [categories, setCategories] = useState<Category[]>([]);
   const [categoriesLoading, setCategoriesLoading] = useState(false);
@@ -440,6 +636,7 @@ export default function ProductsPage() {
   );
   const [categoryForm, setCategoryForm] = useState({
     name: "",
+    description: "",
     level: "L1",
     parentL1Id: "",
     parentL2Id: "",
@@ -469,6 +666,20 @@ export default function ProductsPage() {
   useEffect(() => {
     setPage(1);
   }, [skuTab]);
+
+  // â”€â”€ Close columns dropdown on outside click
+  useEffect(() => {
+    if (!columnsMenuOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (
+        columnsMenuRef.current &&
+        !columnsMenuRef.current.contains(e.target as Node)
+      )
+        setColumnsMenuOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [columnsMenuOpen]);
 
   // â”€â”€ Fetch products
   const fetchProducts = useCallback(async () => {
@@ -538,6 +749,7 @@ export default function ProductsPage() {
           name: node.name,
           level: `L${node.level}` as "L1" | "L2" | "L3",
           parentCategory: parentName,
+          productsCount: node.productsCount ?? 0,
           status: node.isActive ? "Active" : "Paused",
           expanded: false,
           children,
@@ -668,6 +880,7 @@ export default function ProductsPage() {
     void loadCategoryOptions();
     setCategoryForm({
       name: "",
+      description: "",
       level: "L1",
       parentL1Id: "",
       parentL2Id: "",
@@ -687,6 +900,7 @@ export default function ProductsPage() {
     const flatCats = await loadCategoryOptions();
     setCategoryForm({
       name: "",
+      description: "",
       level: cat.level,
       parentL1Id: "",
       parentL2Id: "",
@@ -726,6 +940,7 @@ export default function ProductsPage() {
         }
         setCategoryForm({
           name: d.name ?? "",
+          description: d.description ?? "",
           level: d.level ? (`L${d.level}` as "L1" | "L2" | "L3") : cat.level,
           parentL1Id,
           parentL2Id,
@@ -764,6 +979,8 @@ export default function ProductsPage() {
             : "";
       const fd = new FormData();
       fd.append("name", categoryForm.name);
+      if (categoryForm.description.trim())
+        fd.append("description", categoryForm.description.trim());
       fd.append("level", String(levelNum));
       fd.append("displayPriority", categoryForm.displayPriority || "0");
       fd.append("imageAltText", categoryForm.imageAltText.trim());
@@ -974,27 +1191,82 @@ export default function ProductsPage() {
       {/* â”€â”€ Products View */}
       {activeTab === "products" && (
         <>
-          {/* SKU Filter Tabs */}
-          <div className="flex gap-2">
-            {(
-              [
-                { key: "all", label: "All SKUs" },
-                { key: "ebay", label: "eBay SKUs" },
-                { key: "non-ebay", label: "Non-eBay SKUs" },
-              ] as { key: SkuTab; label: string }[]
-            ).map((t) => (
+          {/* SKU Filter Tabs + Column selector */}
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex gap-2">
+              {(
+                [
+                  { key: "all", label: "All SKUs" },
+                  { key: "ebay", label: "eBay SKUs" },
+                  { key: "non-ebay", label: "Non-eBay SKUs" },
+                ] as { key: SkuTab; label: string }[]
+              ).map((t) => (
+                <button
+                  key={t.key}
+                  onClick={() => setSkuTab(t.key)}
+                  className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                    skuTab === t.key
+                      ? "bg-[#1a2b6b] text-white"
+                      : "bg-white text-gray-600 border border-gray-300 hover:bg-gray-50"
+                  }`}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Column selector dropdown */}
+            <div className="relative" ref={columnsMenuRef}>
               <button
-                key={t.key}
-                onClick={() => setSkuTab(t.key)}
-                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                  skuTab === t.key
-                    ? "bg-[#1a2b6b] text-white"
-                    : "bg-white text-gray-600 border border-gray-300 hover:bg-gray-50"
-                }`}
+                onClick={() => setColumnsMenuOpen((o) => !o)}
+                className="flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium bg-white text-gray-600 border border-gray-300 hover:bg-gray-50 transition-colors"
               >
-                {t.label}
+                <SlidersHorizontal className="h-4 w-4" />
+                Columns
+                <ChevronDown
+                  className={`h-4 w-4 transition-transform ${columnsMenuOpen ? "rotate-180" : ""}`}
+                />
               </button>
-            ))}
+              <AnimatePresence>
+                {columnsMenuOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -4 }}
+                    transition={{ duration: 0.12 }}
+                    className="absolute right-0 mt-2 w-60 max-h-80 overflow-y-auto rounded-xl border border-gray-200 bg-white shadow-lg z-30 py-2"
+                  >
+                    <div className="flex items-center justify-between px-3 pb-2 mb-1 border-b border-gray-100">
+                      <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                        Show columns
+                      </span>
+                      <button
+                        onClick={() =>
+                          setVisibleColumns(DEFAULT_VISIBLE_COLUMNS)
+                        }
+                        className="text-xs font-medium text-[#1a2b6b] hover:underline"
+                      >
+                        Reset
+                      </button>
+                    </div>
+                    {PRODUCT_COLUMNS.map((col) => (
+                      <label
+                        key={col.key}
+                        className="flex items-center gap-2.5 px-3 py-2 hover:bg-gray-50 cursor-pointer"
+                      >
+                        <Checkbox
+                          checked={visibleColumns.includes(col.key)}
+                          onCheckedChange={() => toggleColumn(col.key)}
+                        />
+                        <span className="text-sm text-gray-700">
+                          {col.label}
+                        </span>
+                      </label>
+                    ))}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
           </div>
 
           {/* Products Table */}
@@ -1009,27 +1281,11 @@ export default function ProductsPage() {
                     <th className="text-left px-3 sm:px-4 py-3 font-semibold text-gray-700">
                       Product Name
                     </th>
-                    <th className="text-left px-3 py-3 font-semibold text-gray-700 whitespace-nowrap hidden lg:table-cell">
-                      Supplier Name
-                    </th>
-                    <th className="text-left px-3 py-3 font-semibold text-gray-700 whitespace-nowrap hidden md:table-cell">
-                      SKU Code
-                    </th>
-                    <th className="text-center px-3 py-3 font-semibold text-[#1a2b6b] whitespace-nowrap hidden xl:table-cell">
-                      Available Quantity
-                    </th>
-                    <th className="text-left px-3 py-3 font-semibold text-[#1a2b6b] whitespace-nowrap hidden xl:table-cell">
-                      Weight
-                    </th>
-                    <th className="text-left px-3 py-3 font-semibold text-[#1a2b6b] whitespace-nowrap hidden lg:table-cell">
-                      Price
-                    </th>
-                    <th className="text-left px-3 py-3 font-semibold text-[#1a2b6b] whitespace-nowrap hidden xl:table-cell">
-                      Offer Price
-                    </th>
-                    <th className="text-left px-3 py-3 font-semibold text-gray-700 hidden lg:table-cell">
-                      Status
-                    </th>
+                    {activeColumns.map((col) => (
+                      <th key={col.key} className={col.headerClassName}>
+                        {col.label}
+                      </th>
+                    ))}
                     <th className="text-left px-3 sm:px-4 py-3 font-semibold text-gray-700">
                       Actions
                     </th>
@@ -1038,14 +1294,17 @@ export default function ProductsPage() {
                 <tbody className="divide-y divide-gray-100">
                   {loading ? (
                     <tr>
-                      <td colSpan={10} className="py-16 text-center">
+                      <td
+                        colSpan={activeColumns.length + 3}
+                        className="py-16 text-center"
+                      >
                         <Loader2 className="h-7 w-7 animate-spin text-[#1a2b6b] mx-auto" />
                       </td>
                     </tr>
                   ) : products.length === 0 ? (
                     <tr>
                       <td
-                        colSpan={10}
+                        colSpan={activeColumns.length + 3}
                         className="px-4 py-12 text-center text-gray-400 text-sm"
                       >
                         No products found.
@@ -1086,35 +1345,11 @@ export default function ProductsPage() {
                             {product.name}
                           </p>
                         </td>
-                        <td className="px-3 py-3 text-gray-600 hidden lg:table-cell">
-                          {product.supplier?.name ?? "â€”"}
-                        </td>
-                        <td className="px-3 py-3 text-gray-600 hidden md:table-cell">
-                          {product.skuCode ?? "â€”"}
-                        </td>
-                        <td className="px-3 py-3 text-gray-600 text-center hidden xl:table-cell">
-                          {product.quantity ?? "â€”"}
-                        </td>
-                        <td className="px-3 py-3 text-gray-600 hidden xl:table-cell">
-                          {product.weight != null
-                            ? `${product.weight} kg`
-                            : "â€”"}
-                        </td>
-                        <td className="px-3 py-3 text-gray-800 whitespace-nowrap hidden lg:table-cell">
-                          {product.price != null ? `$ ${product.price}` : "â€”"}
-                        </td>
-                        <td className="px-3 py-3 text-gray-800 whitespace-nowrap hidden xl:table-cell">
-                          {product.offerPrice != null
-                            ? `$ ${product.offerPrice}`
-                            : "â€”"}
-                        </td>
-                        <td className="px-3 py-3 hidden lg:table-cell">
-                          <span
-                            className={`text-xs font-medium ${product.isActive ? "text-green-600" : "text-gray-400"}`}
-                          >
-                            {product.isActive ? "Active" : "Paused"}
-                          </span>
-                        </td>
+                        {activeColumns.map((col) => (
+                          <td key={col.key} className={col.cellClassName}>
+                            {col.render(product)}
+                          </td>
+                        ))}
                         <td className="px-3 sm:px-4 py-3">
                           <div className="flex items-center gap-1.5">
                             <button
@@ -1185,6 +1420,9 @@ export default function ProductsPage() {
                   <th className="text-left px-4 py-3 font-medium text-gray-600 hidden md:table-cell">
                     Parent Category
                   </th>
+                  <th className="text-left px-4 py-3 font-medium text-gray-600">
+                    Products Count
+                  </th>
                   <th className="text-left px-4 py-3 font-medium text-gray-600 hidden sm:table-cell">
                     Status
                   </th>
@@ -1196,14 +1434,14 @@ export default function ProductsPage() {
               <tbody className="divide-y divide-gray-100">
                 {categoriesLoading ? (
                   <tr>
-                    <td colSpan={5} className="px-4 py-12 text-center">
+                    <td colSpan={6} className="px-4 py-12 text-center">
                       <Loader2 className="h-6 w-6 animate-spin text-[#1a2b6b] mx-auto" />
                     </td>
                   </tr>
                 ) : categories.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={5}
+                      colSpan={6}
                       className="px-4 py-12 text-center text-gray-400 text-sm"
                     >
                       No categories found.
@@ -1451,6 +1689,25 @@ export default function ProductsPage() {
                       <FieldError msg={categoryErrors.parentL2Id} />
                     </div>
                   )}
+                  <div className="sm:col-span-2">
+                    <Label className="text-[#1a2b6b] font-medium text-sm">
+                      Description{" "}
+                      <span className="text-gray-400 font-normal">
+                        (Optional)
+                      </span>
+                    </Label>
+                    <Textarea
+                      className="mt-1 min-h-[90px] resize-none"
+                      placeholder="Enter a description about the category"
+                      value={categoryForm.description}
+                      onChange={(e) =>
+                        setCategoryForm((f) => ({
+                          ...f,
+                          description: e.target.value,
+                        }))
+                      }
+                    />
+                  </div>
                   <div className="sm:col-span-1">
                     <Label className="text-[#1a2b6b] font-medium text-sm">
                       Tags
@@ -1509,7 +1766,9 @@ export default function ProductsPage() {
             </div>
             {/* SEO Details */}
             <div className="px-4 sm:px-6 pb-5 border-t border-gray-100 pt-5">
-              <p className="text-sm font-semibold text-[#1a2b6b] mb-4">SEO Details</p>
+              <p className="text-sm font-semibold text-[#1a2b6b] mb-4">
+                SEO Details
+              </p>
               <SeoTab
                 ref={categorySeoRef}
                 key={editCategoryId ?? "new-category"}

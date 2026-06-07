@@ -1,6 +1,12 @@
 "use client";
 
-import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
+import {
+  forwardRef,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+} from "react";
 import { Loader2, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -29,8 +35,19 @@ function slugify(value: string) {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
 }
+const SITE_BASE_URL = "https://dev.rvadventureaustralia.com.au";
+
 function buildUrl(prefix: string, slug: string) {
-  return slug ? `${prefix}/${slug}` : "";
+  if (!slug) return "";
+  const path = `${prefix}/${slug}`.replace(/^\/+/, "");
+  return `${SITE_BASE_URL}/${path}`;
+}
+// Ensure any stored URL is shown as a complete URL with https + domain.
+function toAbsoluteUrl(url: string) {
+  const trimmed = (url || "").trim();
+  if (!trimmed) return "";
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  return `${SITE_BASE_URL}/${trimmed.replace(/^\/+/, "")}`;
 }
 
 interface SeoRecord {
@@ -68,7 +85,12 @@ const SeoTab = forwardRef<SeoTabHandle, SeoTabProps>(function SeoTab(
   const [saving, setSaving] = useState(false);
   const [exists, setExists] = useState(false);
 
-  const [form, setForm] = useState({ slug: "", title: "", description: "", url: "" });
+  const [form, setForm] = useState({
+    slug: "",
+    title: "",
+    description: "",
+    url: "",
+  });
   const [keywords, setKeywords] = useState<string[]>([]);
   const [keywordInput, setKeywordInput] = useState("");
 
@@ -78,8 +100,12 @@ const SeoTab = forwardRef<SeoTabHandle, SeoTabProps>(function SeoTab(
   // Tracks whether any field has been changed since the last load/save
   const isDirty = useRef(false);
 
-  const markDirty = () => { isDirty.current = true; };
-  const clearDirty = () => { isDirty.current = false; };
+  const markDirty = () => {
+    isDirty.current = true;
+  };
+  const clearDirty = () => {
+    isDirty.current = false;
+  };
 
   const set = (key: keyof typeof form, value: string) => {
     markDirty();
@@ -90,7 +116,8 @@ const SeoTab = forwardRef<SeoTabHandle, SeoTabProps>(function SeoTab(
   useEffect(() => {
     if (hasFetched.current) return;
 
-    const derivedSlug = initialSlug?.trim() || slugify(productName?.trim() || "");
+    const derivedSlug =
+      initialSlug?.trim() || slugify(productName?.trim() || "");
     const token = readToken();
     if (!derivedSlug || !token) return;
 
@@ -109,7 +136,7 @@ const SeoTab = forwardRef<SeoTabHandle, SeoTabProps>(function SeoTab(
             slug: s,
             title: rec.title ?? "",
             description: rec.description ?? "",
-            url: rec.url ?? buildUrl(urlPrefix, s),
+            url: rec.url ? toAbsoluteUrl(rec.url) : buildUrl(urlPrefix, s),
           });
           setKeywords(Array.isArray(rec.keywords) ? rec.keywords : []);
           setExists(true);
@@ -117,7 +144,11 @@ const SeoTab = forwardRef<SeoTabHandle, SeoTabProps>(function SeoTab(
           slugLocked.current = true;
           clearDirty(); // loaded from server — not dirty yet
         } else {
-          setForm((f) => ({ ...f, slug: derivedSlug, url: buildUrl(urlPrefix, derivedSlug) }));
+          setForm((f) => ({
+            ...f,
+            slug: derivedSlug,
+            url: buildUrl(urlPrefix, derivedSlug),
+          }));
           clearDirty();
         }
       })
@@ -130,7 +161,7 @@ const SeoTab = forwardRef<SeoTabHandle, SeoTabProps>(function SeoTab(
         clearDirty();
       })
       .finally(() => setLoading(false));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialSlug, productName]);
 
   // ── Live slug / URL sync from productName (add pages, no initialSlug) ────────
@@ -146,7 +177,11 @@ const SeoTab = forwardRef<SeoTabHandle, SeoTabProps>(function SeoTab(
   // ── Core save logic (shared by button and triggerSave) ───────────────────────
   const doSave = async (): Promise<void> => {
     if (!form.slug.trim()) {
-      toast({ title: "Validation Error", description: "Slug is required.", variant: "destructive" });
+      toast({
+        title: "Validation Error",
+        description: "Slug is required.",
+        variant: "destructive",
+      });
       return;
     }
     setSaving(true);
@@ -170,9 +205,16 @@ const SeoTab = forwardRef<SeoTabHandle, SeoTabProps>(function SeoTab(
       setExists(true);
       savedSlug.current = body.slug;
       clearDirty();
-      toast({ title: "Success", description: `SEO details ${exists ? "updated" : "created"} successfully.` });
+      toast({
+        title: "Success",
+        description: `SEO details ${exists ? "updated" : "created"} successfully.`,
+      });
     } catch (err: any) {
-      toast({ title: "Error", description: err.message || "Failed to save SEO details", variant: "destructive" });
+      toast({
+        title: "Error",
+        description: err.message || "Failed to save SEO details",
+        variant: "destructive",
+      });
     } finally {
       setSaving(false);
     }
@@ -189,7 +231,11 @@ const SeoTab = forwardRef<SeoTabHandle, SeoTabProps>(function SeoTab(
   // ── Delete ────────────────────────────────────────────────────────────────────
   const handleDelete = async () => {
     if (!form.slug.trim()) return;
-    if (typeof window !== "undefined" && !window.confirm("Delete the SEO details for this slug?")) return;
+    if (
+      typeof window !== "undefined" &&
+      !window.confirm("Delete the SEO details for this slug?")
+    )
+      return;
     setSaving(true);
     try {
       const res = await fetch(
@@ -209,7 +255,11 @@ const SeoTab = forwardRef<SeoTabHandle, SeoTabProps>(function SeoTab(
       clearDirty();
       toast({ title: "SEO details deleted successfully." });
     } catch (err: any) {
-      toast({ title: "Error", description: err.message || "Failed to delete SEO details", variant: "destructive" });
+      toast({
+        title: "Error",
+        description: err.message || "Failed to delete SEO details",
+        variant: "destructive",
+      });
     } finally {
       setSaving(false);
     }
@@ -229,8 +279,10 @@ const SeoTab = forwardRef<SeoTabHandle, SeoTabProps>(function SeoTab(
     markDirty();
   };
   const handleKeywordKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter" || e.key === ",") { e.preventDefault(); addKeyword(); }
-    else if (e.key === "Backspace" && !keywordInput && keywords.length > 0) {
+    if (e.key === "Enter" || e.key === ",") {
+      e.preventDefault();
+      addKeyword();
+    } else if (e.key === "Backspace" && !keywordInput && keywords.length > 0) {
       setKeywords((prev) => prev.slice(0, -1));
       markDirty();
     }
@@ -264,7 +316,7 @@ const SeoTab = forwardRef<SeoTabHandle, SeoTabProps>(function SeoTab(
           />
         </div>
         <div>
-          <label className={labelCls}>Title</label>
+          <label className={labelCls}>Meta Title Tag</label>
           <input
             value={form.title}
             onChange={(e) => set("title", e.target.value)}
@@ -282,12 +334,18 @@ const SeoTab = forwardRef<SeoTabHandle, SeoTabProps>(function SeoTab(
           />
         </div>
         <div>
-          <label className={labelCls}>Keywords</label>
+          <label className={labelCls}>Meta Keywords</label>
           <div className="w-full min-h-10 px-2 py-1.5 border border-gray-300 rounded-lg bg-white flex flex-wrap items-center gap-1.5 focus-within:ring-2 focus-within:ring-[#1a2b6b]/20 focus-within:border-[#1a2b6b]">
             {keywords.map((kw) => (
-              <span key={kw} className="inline-flex items-center gap-1 bg-[#1a2b6b]/10 text-[#1a2b6b] text-xs font-medium px-2 py-0.5 rounded">
+              <span
+                key={kw}
+                className="inline-flex items-center gap-1 bg-[#1a2b6b]/10 text-[#1a2b6b] text-xs font-medium px-2 py-0.5 rounded"
+              >
                 {kw}
-                <X className="h-3 w-3 cursor-pointer hover:text-red-600" onClick={() => removeKeyword(kw)} />
+                <X
+                  className="h-3 w-3 cursor-pointer hover:text-red-600"
+                  onClick={() => removeKeyword(kw)}
+                />
               </span>
             ))}
             <input
@@ -303,7 +361,7 @@ const SeoTab = forwardRef<SeoTabHandle, SeoTabProps>(function SeoTab(
       </div>
 
       <div>
-        <label className={labelCls}>Description</label>
+        <label className={labelCls}>Meta Description Tag</label>
         <textarea
           value={form.description}
           onChange={(e) => set("description", e.target.value)}
@@ -316,36 +374,64 @@ const SeoTab = forwardRef<SeoTabHandle, SeoTabProps>(function SeoTab(
       {/* Google Search Preview */}
       {(form.title || form.url || form.description) && (
         <div className="border border-gray-200 rounded-xl p-4 bg-white">
-          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">
+          <p className="text-xs font-semibold text-black uppercase tracking-wide mb-3">
             Google Search Preview
           </p>
           <div className="flex items-start gap-4">
             {image && (
               <div className="shrink-0 w-24 h-24 rounded-lg overflow-hidden border border-gray-200 bg-gray-50">
-                <img src={image} alt="preview" className="w-full h-full object-cover" />
+                <img
+                  src={image}
+                  alt="preview"
+                  className="w-full h-full object-cover"
+                />
               </div>
             )}
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-0.5">
                 <div className="w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center shrink-0">
-                  <svg className="w-3 h-3 text-gray-500" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
+                  <svg
+                    className="w-3 h-3 text-black"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                  >
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z" />
                   </svg>
                 </div>
                 <div>
-                  <p className="text-xs text-gray-600 leading-tight">rvadventureaustralia.com.au</p>
-                  <p className="text-xs text-gray-400 leading-tight truncate">{form.url || "/"}</p>
+                  <p className="text-xs text-black leading-tight">
+                    rvadventureaustralia.com.au
+                  </p>
+                  <p className="text-xs text-black leading-tight truncate">
+                    {form.url || "/"}
+                  </p>
                 </div>
               </div>
               <p className="text-[#1a0dab] text-xl leading-tight hover:underline cursor-pointer truncate mt-1">
-                {form.title
-                  ? form.title.length > 60 ? form.title.slice(0, 60) + "…" : form.title
-                  : <span className="text-gray-300 italic text-base">Page title</span>}
+                {form.title ? (
+                  form.title.length > 60 ? (
+                    form.title.slice(0, 60) + "…"
+                  ) : (
+                    form.title
+                  )
+                ) : (
+                  <span className="text-gray-300 italic text-base">
+                    Page title
+                  </span>
+                )}
               </p>
               <p className="text-sm text-gray-600 leading-snug mt-1 line-clamp-2">
-                {form.description
-                  ? form.description.length > 155 ? form.description.slice(0, 155) + "…" : form.description
-                  : <span className="text-gray-300 italic">Meta description will appear here…</span>}
+                {form.description ? (
+                  form.description.length > 155 ? (
+                    form.description.slice(0, 155) + "…"
+                  ) : (
+                    form.description
+                  )
+                ) : (
+                  <span className="text-gray-300 italic">
+                    Meta description will appear here…
+                  </span>
+                )}
               </p>
             </div>
           </div>

@@ -1759,9 +1759,10 @@ export default function EditProductPage() {
       fd.append("displayPic", displaySlot.url);
     }
 
-    // images — single comma-separated string of all existing URLs still present
+    // images — single comma-separated string of all existing URLs still present,
+    // excluding the slot selected as displayPic (it must not be duplicated here)
     const existingUrls = images
-      .filter((slot) => slot.isExisting)
+      .filter((slot, i) => slot.isExisting && i !== displayIdx)
       .map((slot) => slot.url)
       .join(",");
     if (existingUrls) fd.append("images", existingUrls);

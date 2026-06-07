@@ -6,6 +6,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Menu, ChevronDown, LogOut, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
+const API_BASE = "https://dev-backend.rvadventureaustralia.com.au/api";
+
 interface HeaderProps {
   onMenuToggle: () => void;
 }
@@ -14,9 +16,11 @@ interface SessionUserInfo {
   name?: string;
   email?: string;
   role?: string | { name?: string };
+  avatar?: string;
 }
 
 interface TokenPayload {
+  userId?: string;
   name?: string;
   email?: string;
   role?: string | { name?: string };
@@ -56,24 +60,49 @@ export function Header({ onMenuToggle }: HeaderProps) {
 
     if (!rawUser && !tokenPayload) return;
 
+    let parsed: SessionUserInfo | null = null;
     try {
-      const parsed = rawUser ? (JSON.parse(rawUser) as SessionUserInfo) : null;
-
-      setSessionUser({
-        name: parsed?.name?.trim() || tokenPayload?.name?.trim() || "Admin",
-        email:
-          parsed?.email?.trim() ||
-          tokenPayload?.email?.trim() ||
-          "admin@rvaustralia.com",
-        role: parsed?.role ?? tokenPayload?.role ?? "Admin",
-      });
+      parsed = rawUser ? (JSON.parse(rawUser) as SessionUserInfo) : null;
     } catch {
-      setSessionUser({
-        name: tokenPayload?.name?.trim() || "Admin",
-        email: tokenPayload?.email?.trim() || "admin@rvaustralia.com",
-        role: tokenPayload?.role ?? "Admin",
-      });
+      parsed = null;
     }
+
+    setSessionUser({
+      name: parsed?.name?.trim() || tokenPayload?.name?.trim() || "Admin",
+      email:
+        parsed?.email?.trim() ||
+        tokenPayload?.email?.trim() ||
+        "admin@rvaustralia.com",
+      role: parsed?.role ?? tokenPayload?.role ?? "Admin",
+      avatar: parsed?.avatar?.trim() || undefined,
+    });
+
+    // Fetch the latest avatar from the API if we don't already have one
+    const userId = tokenPayload?.userId;
+    if (parsed?.avatar?.trim() || !userId || !rawToken) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`${API_BASE}/user?userId=${userId}`, {
+          headers: {
+            accept: "application/json",
+            authorization: `Bearer ${rawToken}`,
+            "x-app-client": "ADMIN_PANEL",
+          },
+        });
+        if (!res.ok) return;
+        const json = await res.json();
+        const avatar: string | undefined = json?.data?.avatar;
+        if (!cancelled && avatar)
+          setSessionUser((prev) => (prev ? { ...prev, avatar } : prev));
+      } catch {
+        // ignore — fall back to initial
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // Close dropdown on outside click
@@ -100,6 +129,24 @@ export function Header({ onMenuToggle }: HeaderProps) {
   const displayEmail = sessionUser?.email || "admin@rvaustralia.com";
   const displayRole = resolveRoleName(sessionUser?.role);
   const displayInitial = displayName.charAt(0).toUpperCase() || "A";
+  const avatarUrl = sessionUser?.avatar;
+
+  const avatarNode = (
+    <div className="h-8 w-8 rounded-full bg-gradient-to-br from-[#1a2b6b] to-blue-500 flex items-center justify-center text-white text-sm font-bold shadow overflow-hidden">
+      {avatarUrl ? (
+        <img
+          src={avatarUrl}
+          alt={displayName}
+          className="h-full w-full object-cover"
+          onError={(e) => {
+            (e.currentTarget as HTMLImageElement).style.display = "none";
+          }}
+        />
+      ) : (
+        displayInitial
+      )}
+    </div>
+  );
 
   return (
     <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b bg-white px-4 lg:px-6 shadow-sm">
@@ -123,9 +170,7 @@ export function Header({ onMenuToggle }: HeaderProps) {
             onClick={() => setProfileOpen((o) => !o)}
             className="flex items-center gap-2 rounded-xl px-2 py-1.5 hover:bg-gray-100 transition-colors"
           >
-            <div className="h-8 w-8 rounded-full bg-gradient-to-br from-[#1a2b6b] to-blue-500 flex items-center justify-center text-white text-sm font-bold shadow">
-              {displayInitial}
-            </div>
+            {avatarNode}
             <div className="hidden md:block text-left">
               <div className="flex items-center gap-1.5">
                 <p className="text-sm font-semibold leading-tight text-gray-800">

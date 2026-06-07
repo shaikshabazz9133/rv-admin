@@ -449,10 +449,8 @@ export default function SuppliersPage() {
       fd.append("country", form.country);
       fd.append("state", form.state);
       fd.append("address", form.address);
-      fd.append(
-        "description",
-        form.description.trim() || "Description about the supplier",
-      );
+      if (form.description.trim())
+        fd.append("description", form.description.trim());
       fd.append("taxNumber", form.taxNumber.trim() || "123456");
       if (editingId) {
         fd.append("supplierId", editingId);
@@ -974,6 +972,18 @@ export default function SuppliersPage() {
                   />
                 </div>
               </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-[13px] font-semibold text-[#1a2b6b]">
+                Supplier Description{" "}
+                <span className="text-gray-400 font-normal">(Optional)</span>
+              </Label>
+              <Textarea
+                placeholder="Enter a description about the supplier"
+                value={form.description}
+                onChange={(e) => setField("description", e.target.value)}
+                className="resize-none h-[90px] text-gray-900"
+              />
             </div>
           </div>
           {/* SEO Details */}
