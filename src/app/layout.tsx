@@ -31,8 +31,16 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const apiBase = process.env.API_BASE ?? process.env.NEXT_PUBLIC_API_BASE ?? "https://dev-backend.rvadventureaustralia.com.au/api";
+  const imgBase = process.env.IMG_BASE ?? process.env.NEXT_PUBLIC_IMG_BASE ?? "https://dev-backend.rvadventureaustralia.com.au";
+  const runtimeConfig = `window.__RV_CONFIG__=${JSON.stringify({ apiBase, imgBase })};`;
+
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        {/* eslint-disable-next-line @next/next/no-sync-scripts */}
+        <script dangerouslySetInnerHTML={{ __html: runtimeConfig }} />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >

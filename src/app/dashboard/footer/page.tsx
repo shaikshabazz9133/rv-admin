@@ -30,8 +30,8 @@ import { cn, resolveImg, imgUrl } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 import SeoTab, { type SeoTabHandle } from "@/components/SeoTab";
+import { API_BASE } from "@/lib/config";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "https://dev-backend.rvadventureaustralia.com.au/api";
 
 // --- Tabs ---
 

@@ -6,8 +6,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Menu, ChevronDown, LogOut, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { resolveImg, imgUrl } from "@/lib/utils";
+import { API_BASE } from "@/lib/config";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "https://dev-backend.rvadventureaustralia.com.au/api";
 
 interface HeaderProps {
   onMenuToggle: () => void;

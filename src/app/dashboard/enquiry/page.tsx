@@ -15,8 +15,8 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 import SeoTab from "@/components/SeoTab";
+import { API_BASE } from "@/lib/config";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "https://dev-backend.rvadventureaustralia.com.au/api";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 

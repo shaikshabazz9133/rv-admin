@@ -5,7 +5,7 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-const IMG_BASE = process.env.NEXT_PUBLIC_IMG_BASE ?? "https://dev-backend.rvadventureaustralia.com.au";
+import { IMG_BASE } from "@/lib/config";
 
 /**
  * Extract a plain URL string from any image field shape the API might return:
