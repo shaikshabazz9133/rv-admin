@@ -20,6 +20,7 @@ import {
   Globe,
   Loader2,
   BookOpen,
+  ImageIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState, useEffect } from "react";
@@ -34,6 +35,7 @@ const navItems = [
   { label: "Offers", href: "/dashboard/offers", icon: Tag },
   { label: "Users", href: "/dashboard/users", icon: Users },
   { label: "Blogs", href: "/dashboard/blogs", icon: BookOpen },
+  { label: "Media", href: "/dashboard/media", icon: ImageIcon },
   { label: "Footer Options", href: "/dashboard/footer", icon: Globe },
   { label: "Settings", href: "/dashboard/settings", icon: Settings },
   { label: "Policies", href: "/dashboard/policies", icon: FileText },

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { resolveImg } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Search,
@@ -924,7 +925,7 @@ export default function OffersPage() {
                       {p.displayPic ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
-                          src={p.displayPic}
+                          src={resolveImg(p.displayPic)}
                           alt={p.name}
                           className="w-full h-full object-cover rounded-lg"
                         />

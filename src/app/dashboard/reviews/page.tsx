@@ -12,6 +12,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
+import { resolveImg, imgUrl } from "@/lib/utils";
 
 // ─── Auth helper ──────────────────────────────────────────────────────────────
 
@@ -35,7 +36,7 @@ interface ReviewUser {
 interface ReviewProduct {
   _id: string;
   name: string;
-  displayPic: string;
+  displayPic: { _id: string; url: string; altText?: string } | string;
   skuCode: string;
   price: number;
   offerPrice: number;
@@ -82,13 +83,9 @@ function StarRating({
 }
 
 // Product thumbnail with relative-URL resolution + load-error fallback
-function ProductThumb({ src, alt }: { src?: string; alt?: string }) {
+function ProductThumb({ src, alt }: { src?: unknown; alt?: string }) {
   const [errored, setErrored] = useState(false);
-  const resolved = src
-    ? src.startsWith("http")
-      ? src
-      : `${BASE}${src.startsWith("/") ? "" : "/"}${src}`
-    : "";
+  const resolved = resolveImg(imgUrl(src));
   if (!resolved || errored) {
     return (
       <div className="w-12 h-12 rounded-lg bg-gray-100 border border-gray-200 flex-shrink-0" />

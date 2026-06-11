@@ -39,10 +39,13 @@ import {
 } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import SeoTab, { type SeoTabHandle } from "@/components/SeoTab";
+import AttachmentDetailsModal from "@/components/AttachmentDetailsModal";
+import { resolveImg, imgUrl } from "@/lib/utils";
 
 const API_BASE = "https://dev-backend.rvadventureaustralia.com.au/api";
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MOBILE_REGEX = /^[0-9]{10}$/;
+
 
 const AU_STATES = [
   "New South Wales",
@@ -69,8 +72,8 @@ interface Supplier {
   address: string;
   description?: string;
   taxNumber?: string;
-  logo?: string;
-  banner?: string;
+  logo?: { _id: string; url: string; altText?: string } | string;
+  banner?: { _id: string; url: string; altText?: string } | string;
   isActive: boolean;
   insertedAt?: number;
   productsCount?: number;
@@ -137,6 +140,7 @@ function FileField({
   onChange,
   error,
   existingUrl,
+  onImageClick,
 }: {
   label: string;
   required?: boolean;
@@ -144,6 +148,7 @@ function FileField({
   onChange: (f: File | null) => void;
   error?: string;
   existingUrl?: string;
+  onImageClick?: () => void;
 }) {
   const ref = useRef<HTMLInputElement>(null);
   return (
@@ -153,13 +158,22 @@ function FileField({
         {required && <RequiredStar />}
       </Label>
       {existingUrl && !value && (
-        <div className="flex items-center gap-2 mb-1">
+        <div className="mb-2 w-full h-36 rounded-lg border border-input bg-gray-50 overflow-hidden flex items-center justify-center relative group">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={existingUrl}
+            src={resolveImg(existingUrl)}
             alt="current"
-            className="h-10 w-10 rounded object-cover border border-input"
+            className="w-full h-full object-contain p-2"
           />
-          <span className="text-xs text-muted-foreground">Current image</span>
+          {onImageClick && (
+            <button
+              type="button"
+              onClick={onImageClick}
+              className="absolute bottom-1 right-1 text-[10px] bg-white/90 border border-gray-200 rounded px-1.5 py-0.5 text-[#1a2b6b] font-medium opacity-0 group-hover:opacity-100 transition-opacity"
+            >
+              Edit details
+            </button>
+          )}
         </div>
       )}
       <div
@@ -312,6 +326,9 @@ export default function SuppliersPage() {
   const [holding, setHolding] = useState(false);
   const [existingLogo, setExistingLogo] = useState("");
   const [existingBanner, setExistingBanner] = useState("");
+  const [logoImageId, setLogoImageId] = useState<string | undefined>();
+  const [bannerImageId, setBannerImageId] = useState<string | undefined>();
+  const [attachTarget, setAttachTarget] = useState<"logo" | "banner" | null>(null);
   const [formKey, setFormKey] = useState(0);
   const [page, setPage] = useState(1);
   const supplierSeoRef = useRef<SeoTabHandle>(null);
@@ -407,6 +424,8 @@ export default function SuppliersPage() {
     setErrors({});
     setExistingLogo("");
     setExistingBanner("");
+    setLogoImageId(undefined);
+    setBannerImageId(undefined);
     setFormKey((k) => k + 1);
     setOpen(true);
   };
@@ -430,8 +449,10 @@ export default function SuppliersPage() {
       bannerAltText: (s as any).bannerAltText ?? "",
     });
     setErrors({});
-    setExistingLogo(s.logo ?? "");
-    setExistingBanner(s.banner ?? "");
+    setExistingLogo(imgUrl(s.logo));
+    setExistingBanner(imgUrl(s.banner));
+    setLogoImageId(s.logo && typeof s.logo === "object" ? s.logo._id : undefined);
+    setBannerImageId(s.banner && typeof s.banner === "object" ? s.banner._id : undefined);
     setFormKey((k) => k + 1);
     setOpen(true);
   };
@@ -613,6 +634,9 @@ export default function SuppliersPage() {
               <Table>
                 <TableHeader>
                   <TableRow className="bg-white dark:bg-card border-b">
+                    <TableHead className="font-bold text-foreground w-14">
+                      Logo
+                    </TableHead>
                     <TableHead className="font-bold text-foreground">
                       Supplier Name
                     </TableHead>
@@ -636,14 +660,14 @@ export default function SuppliersPage() {
                 <TableBody>
                   {listLoading ? (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center py-10">
+                      <TableCell colSpan={7} className="text-center py-10">
                         <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
                       </TableCell>
                     </TableRow>
                   ) : filtered.length === 0 ? (
                     <TableRow>
                       <TableCell
-                        colSpan={6}
+                        colSpan={7}
                         className="text-center py-10 text-muted-foreground"
                       >
                         No suppliers found.
@@ -655,6 +679,20 @@ export default function SuppliersPage() {
                         key={s._id}
                         className={!s.isActive ? "opacity-50" : ""}
                       >
+                        <TableCell>
+                          {imgUrl(s.logo) ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={resolveImg(imgUrl(s.logo))}
+                              alt={s.name}
+                              className="w-10 h-10 rounded-lg object-contain border border-gray-100 bg-gray-50"
+                            />
+                          ) : (
+                            <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center text-gray-300 text-xs font-bold">
+                              {s.name.charAt(0).toUpperCase()}
+                            </div>
+                          )}
+                        </TableCell>
                         <TableCell className="font-medium">{s.name}</TableCell>
                         <TableCell className="text-muted-foreground">
                           {s.code}
@@ -940,6 +978,7 @@ export default function SuppliersPage() {
                   onChange={(f) => setField("logo", f)}
                   error={errors.logo}
                   existingUrl={existingLogo}
+                  onImageClick={existingLogo ? () => setAttachTarget("logo") : undefined}
                 />
                 <div className="space-y-1.5">
                   <Label className="text-[13px] font-semibold text-[#1a2b6b]">
@@ -959,6 +998,7 @@ export default function SuppliersPage() {
                   value={form.banner}
                   onChange={(f) => setField("banner", f)}
                   existingUrl={existingBanner}
+                  onImageClick={existingBanner ? () => setAttachTarget("banner") : undefined}
                 />
                 <div className="space-y-1.5">
                   <Label className="text-[13px] font-semibold text-[#1a2b6b]">
@@ -994,7 +1034,7 @@ export default function SuppliersPage() {
               key={editingId ?? "new-supplier"}
               productName={form.name}
               urlPrefix="/brands"
-              image={existingLogo || undefined}
+              image={resolveImg(existingLogo) || undefined}
             />
           </div>
 
@@ -1116,6 +1156,26 @@ export default function SuppliersPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Supplier Attachment Details */}
+      {attachTarget === "logo" && existingLogo && (
+        <AttachmentDetailsModal
+          imageUrl={existingLogo}
+          imageId={logoImageId}
+          initialAltText={form.logoAltText}
+          onClose={() => setAttachTarget(null)}
+          onSaved={(data) => { setField("logoAltText", data.altText); }}
+        />
+      )}
+      {attachTarget === "banner" && existingBanner && (
+        <AttachmentDetailsModal
+          imageUrl={existingBanner}
+          imageId={bannerImageId}
+          initialAltText={form.bannerAltText}
+          onClose={() => setAttachTarget(null)}
+          onSaved={(data) => { setField("bannerAltText", data.altText); }}
+        />
+      )}
     </div>
   );
 }

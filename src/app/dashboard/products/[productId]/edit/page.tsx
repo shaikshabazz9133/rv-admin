@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useToast } from "@/hooks/use-toast";
+import { resolveImg, imgUrl } from "@/lib/utils";
 import {
   Select,
   SelectContent,
@@ -94,6 +95,170 @@ interface ImageSlot {
   url: string;
   file?: File;
   isExisting: boolean;
+  imageId?: string;
+  title?: string;
+  altText?: string;
+  description?: string;
+}
+
+// ─── Attachment Details Modal ─────────────────────────────────────────────────
+function AttachmentDetailsModal({
+  slot,
+  idx,
+  isMain,
+  form,
+  saving,
+  onFormChange,
+  onSetMain,
+  onSave,
+  onClose,
+}: {
+  slot: ImageSlot;
+  idx: number;
+  isMain: boolean;
+  form: { title: string; altText: string; description: string };
+  saving: boolean;
+  onFormChange: (f: { title: string; altText: string; description: string }) => void;
+  onSetMain: () => void;
+  onSave: () => void;
+  onClose: () => void;
+}) {
+  const [copied, setCopied] = useState(false);
+  const fileUrl = resolveImg(slot.url);
+
+  const copyUrl = () => {
+    navigator.clipboard.writeText(fileUrl).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
+    });
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+    >
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl flex flex-col h-[82vh] min-h-[540px] overflow-hidden ring-1 ring-black/5">
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-100 flex-shrink-0">
+          <h2 className="text-sm font-semibold text-gray-900">Attachment details</h2>
+          <div className="flex items-center gap-2">
+            {isMain ? (
+              <span className="text-xs px-2.5 py-1 rounded-full bg-green-50 text-green-700 border border-green-200 font-medium">
+                ✓ Main Image
+              </span>
+            ) : (
+              <button
+                type="button"
+                onClick={onSetMain}
+                className="text-xs px-3 py-1.5 rounded-lg border border-[#1a2b6b] text-[#1a2b6b] hover:bg-[#1a2b6b] hover:text-white transition-colors font-medium"
+              >
+                Set as Main
+              </button>
+            )}
+            <button type="button" onClick={onClose} className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+
+        {/* Body */}
+        <div className="flex flex-1 overflow-hidden min-h-0">
+
+          {/* Left — image */}
+          <div className="w-[45%] bg-[#f5f6f8] border-r border-gray-100 flex flex-col items-center justify-center p-6 gap-3 flex-shrink-0">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={fileUrl}
+              alt={form.altText || `Image ${idx + 1}`}
+              className="max-w-full max-h-[55vh] object-contain rounded-xl shadow-sm"
+            />
+            <p className="text-[10px] text-gray-400 text-center break-all leading-relaxed w-full">
+              {fileUrl.split("/").pop()?.split("?")[0] ?? ""}
+            </p>
+          </div>
+
+          {/* Right — fields + footer */}
+          <div className="flex-1 flex flex-col overflow-hidden">
+            <div className="flex-1 overflow-y-auto px-5 py-5 space-y-4">
+
+              <div className="space-y-1.5">
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide">Alternative Text</label>
+                <input
+                  type="text"
+                  value={form.altText}
+                  onChange={(e) => onFormChange({ ...form, altText: e.target.value })}
+                  placeholder="Describe the image…"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#1a2b6b]/20 focus:border-[#1a2b6b] transition-colors"
+                />
+                <p className="text-[11px] text-gray-400">Leave empty if the image is purely decorative.</p>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide">Title</label>
+                <input
+                  type="text"
+                  value={form.title}
+                  onChange={(e) => onFormChange({ ...form, title: e.target.value })}
+                  placeholder="Image title…"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#1a2b6b]/20 focus:border-[#1a2b6b] transition-colors"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide">Description</label>
+                <textarea
+                  value={form.description}
+                  onChange={(e) => onFormChange({ ...form, description: e.target.value })}
+                  placeholder="Add a caption or longer description…"
+                  rows={3}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#1a2b6b]/20 focus:border-[#1a2b6b] transition-colors resize-none"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide">File URL</label>
+                <div className="flex items-center gap-2 px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg">
+                  <span className="flex-1 text-xs text-gray-500 truncate font-mono">{fileUrl}</span>
+                  <button
+                    type="button"
+                    onClick={copyUrl}
+                    className={`flex-shrink-0 text-xs px-2.5 py-1 rounded-md font-medium border transition-all ${copied ? "bg-green-50 text-green-600 border-green-200" : "bg-white text-gray-600 border-gray-200 hover:border-[#1a2b6b]/40 hover:text-[#1a2b6b]"}`}
+                  >
+                    {copied ? "✓ Copied" : "Copy"}
+                  </button>
+                </div>
+              </div>
+
+            </div>
+
+            {/* Sticky footer */}
+            <div className="flex-shrink-0 px-5 py-4 border-t border-gray-100 bg-white">
+              <div className="flex gap-2.5">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="flex-1 h-10 border border-gray-200 rounded-xl text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={onSave}
+                  disabled={saving}
+                  className="flex-1 h-10 bg-[#1a2b6b] hover:bg-[#142258] text-white rounded-xl text-sm font-semibold transition-colors disabled:opacity-60 flex items-center justify-center gap-2 shadow-sm"
+                >
+                  {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                  Save Details
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function normalizeSpecRows(value: unknown): string[][] {
@@ -491,7 +656,7 @@ function ProductCard({
   selected: boolean;
   onToggle: () => void;
 }) {
-  const img = product.displayPic || product.images?.[0];
+  const img = imgUrl(product.displayPic) || imgUrl(product.images?.[0]);
   return (
     <div
       onClick={onToggle}
@@ -521,7 +686,7 @@ function ProductCard({
       <div className="aspect-square bg-gray-50 flex items-center justify-center overflow-hidden">
         {img ? (
           <img
-            src={img}
+            src={resolveImg(img)}
             alt={product.name}
             className="w-full h-full object-contain p-2"
           />
@@ -1510,14 +1675,21 @@ export default function EditProductPage() {
           );
 
           // Build images array: displayPic first (index 0), then other images
+          const toSlot = (raw: unknown): ImageSlot => {
+            const url = imgUrl(raw);
+            if (raw && typeof raw === "object") {
+              const o = raw as Record<string, unknown>;
+              return { url, isExisting: true, imageId: o._id as string | undefined, title: o.title as string | undefined, altText: o.altText as string | undefined, description: o.description as string | undefined };
+            }
+            return { url, isExisting: true };
+          };
           const slots: ImageSlot[] = [];
-          if (p.displayPic) slots.push({ url: p.displayPic, isExisting: true });
-          const otherImages: string[] = (p.images ?? []).filter(
-            (u: string) => u !== p.displayPic,
-          );
-          otherImages.forEach((url: string) =>
-            slots.push({ url, isExisting: true }),
-          );
+          const dpSlot = toSlot(p.displayPic);
+          if (dpSlot.url) slots.push(dpSlot);
+          (p.images ?? []).forEach((u: unknown) => {
+            const s = toSlot(u);
+            if (s.url && s.url !== dpSlot.url) slots.push(s);
+          });
           setImages(slots);
           setDisplayIdx(0);
 
@@ -1652,6 +1824,44 @@ export default function EditProductPage() {
       )
       .finally(() => setPageLoading(false));
   }, [productId, router, toast]);
+
+  // ── Attachment details modal
+  const [attachIdx, setAttachIdx] = useState<number | null>(null);
+  const [attachForm, setAttachForm] = useState({ title: "", altText: "", description: "" });
+  const [attachSaving, setAttachSaving] = useState(false);
+
+  const openAttachment = (idx: number) => {
+    const slot = images[idx];
+    setAttachIdx(idx);
+    setAttachForm({ title: slot.title ?? "", altText: slot.altText ?? "", description: slot.description ?? "" });
+  };
+
+  const closeAttachment = () => setAttachIdx(null);
+
+  const saveAttachment = async () => {
+    if (attachIdx === null) return;
+    const slot = images[attachIdx];
+    setAttachSaving(true);
+    try {
+      if (slot.imageId) {
+        const token = getToken();
+        if (!token) { setAttachSaving(false); return; }
+        const fd = new FormData();
+        fd.append("imageId", slot.imageId);
+        if (attachForm.title.trim()) fd.append("title", attachForm.title.trim());
+        if (attachForm.altText.trim()) fd.append("altText", attachForm.altText.trim());
+        if (attachForm.description.trim()) fd.append("description", attachForm.description.trim());
+        await fetch(`${API_BASE}/image`, { method: "PATCH", headers: { authorization: `Bearer ${token}`, "x-app-client": "ADMIN_PANEL" }, body: fd });
+      }
+      setImages((prev) => prev.map((s, i) => i === attachIdx ? { ...s, title: attachForm.title, altText: attachForm.altText, description: attachForm.description } : s));
+      toast({ title: "Details saved." });
+      closeAttachment();
+    } catch {
+      toast({ title: "Failed to save details.", variant: "destructive" });
+    } finally {
+      setAttachSaving(false);
+    }
+  };
 
   // ── Image upload
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -2006,7 +2216,7 @@ export default function EditProductPage() {
           >
             {mainPreviewUrl ? (
               <img
-                src={mainPreviewUrl}
+                src={resolveImg(mainPreviewUrl)}
                 alt="Main preview"
                 className="w-full h-full object-contain p-3"
               />
@@ -2031,7 +2241,7 @@ export default function EditProductPage() {
                 {images.map((slot, i) => (
                   <div
                     key={i}
-                    onClick={() => setDisplayIdx(i)}
+                    onClick={() => openAttachment(i)}
                     className={`relative w-16 h-16 rounded-lg border-2 overflow-hidden cursor-pointer transition-colors ${
                       i === displayIdx
                         ? "border-[#1a2b6b]"
@@ -2039,7 +2249,7 @@ export default function EditProductPage() {
                     }`}
                   >
                     <img
-                      src={slot.url}
+                      src={resolveImg(slot.url)}
                       alt={`img-${i + 1}`}
                       className="w-full h-full object-contain p-1"
                     />
@@ -2503,6 +2713,21 @@ export default function EditProductPage() {
           )}
         </div>
       </div>
+
+      {/* Attachment Details Modal */}
+      {attachIdx !== null && images[attachIdx] && (
+        <AttachmentDetailsModal
+          slot={images[attachIdx]}
+          idx={attachIdx}
+          isMain={attachIdx === displayIdx}
+          form={attachForm}
+          saving={attachSaving}
+          onFormChange={setAttachForm}
+          onSetMain={() => { setDisplayIdx(attachIdx); closeAttachment(); }}
+          onSave={saveAttachment}
+          onClose={closeAttachment}
+        />
+      )}
     </motion.div>
   );
 }

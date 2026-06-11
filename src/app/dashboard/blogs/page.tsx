@@ -23,6 +23,8 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 import SeoTab, { type SeoTabHandle } from "@/components/SeoTab";
+import AttachmentDetailsModal from "@/components/AttachmentDetailsModal";
+import { resolveImg, imgUrl } from "@/lib/utils";
 
 const API_BASE = "https://dev-backend.rvadventureaustralia.com.au/api";
 
@@ -210,7 +212,11 @@ export default function BlogsPage() {
     categoryId: "",
     image: null as File | null,
     imagePreview: "",
+    imageId: undefined as string | undefined,
+    imageTitle: "",
+    imageDescription: "",
   });
+  const [blogAttachOpen, setBlogAttachOpen] = useState(false);
   const [blogPage, setBlogPage] = useState(1);
   const [blogTotal, setBlogTotal] = useState(0);
   const [blogTotalPages, setBlogTotalPages] = useState(1);
@@ -502,6 +508,9 @@ export default function BlogsPage() {
       categoryId: "",
       image: null,
       imagePreview: "",
+      imageId: undefined,
+      imageTitle: "",
+      imageDescription: "",
     });
     setView("add");
   };
@@ -522,12 +531,17 @@ export default function BlogsPage() {
         throw new Error((json?.message as string) || `Server error (${res.status})`);
       const detail: Blog = json.data;
       setEditBlog(detail);
+      const rawImg = detail.image as unknown;
+      const imgId = rawImg && typeof rawImg === "object" ? (rawImg as Record<string, unknown>)._id as string : undefined;
       setBlogForm({
         title: detail.title ?? "",
         imageAltText: detail.imageAltText ?? "",
         categoryId: detail.category?._id ?? "",
         image: null,
-        imagePreview: detail.image ?? "",
+        imagePreview: imgUrl(detail.image),
+        imageId: imgId,
+        imageTitle: rawImg && typeof rawImg === "object" ? (rawImg as Record<string, unknown>).title as string ?? "" : "",
+        imageDescription: rawImg && typeof rawImg === "object" ? (rawImg as Record<string, unknown>).description as string ?? "" : "",
       });
     } catch (err: unknown) {
       toast({
@@ -805,9 +819,9 @@ export default function BlogsPage() {
                 {blogForm.imagePreview ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
-                    src={blogForm.imagePreview}
+                    src={resolveImg(blogForm.imagePreview)}
                     alt="Preview"
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-contain"
                   />
                 ) : (
                   <>
@@ -831,18 +845,27 @@ export default function BlogsPage() {
                 }}
               />
               {blogForm.imagePreview && (
-                <button
-                  onClick={() =>
-                    setBlogForm((f) => ({
-                      ...f,
-                      image: null,
-                      imagePreview: "",
-                    }))
-                  }
-                  className="mt-1.5 text-xs text-red-500 hover:text-red-700 transition-colors"
-                >
-                  Remove image
-                </button>
+                <div className="mt-1.5 flex gap-3">
+                  <button
+                    onClick={() => setBlogAttachOpen(true)}
+                    className="text-xs text-[#1a2b6b] hover:underline"
+                  >
+                    Edit attachment details
+                  </button>
+                  <button
+                    onClick={() =>
+                      setBlogForm((f) => ({
+                        ...f,
+                        image: null,
+                        imagePreview: "",
+                        imageId: undefined,
+                      }))
+                    }
+                    className="text-xs text-red-500 hover:text-red-700 transition-colors"
+                  >
+                    Remove image
+                  </button>
+                </div>
               )}
             </div>
 
@@ -1321,9 +1344,9 @@ export default function BlogsPage() {
                           {b.image ? (
                             // eslint-disable-next-line @next/next/no-img-element
                             <img
-                              src={b.image}
+                              src={resolveImg(imgUrl(b.image))}
                               alt={b.title}
-                              className="w-12 h-12 object-cover rounded-lg border border-gray-100"
+                              className="w-12 h-12 object-contain rounded-lg border border-gray-100 bg-gray-50 p-0.5"
                             />
                           ) : (
                             <div className="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center">
@@ -1572,6 +1595,19 @@ export default function BlogsPage() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Blog Attachment Details */}
+      {blogAttachOpen && blogForm.imagePreview && (
+        <AttachmentDetailsModal
+          imageUrl={blogForm.imagePreview}
+          imageId={blogForm.imageId}
+          initialTitle={blogForm.imageTitle}
+          initialAltText={blogForm.imageAltText}
+          initialDescription={blogForm.imageDescription}
+          onClose={() => setBlogAttachOpen(false)}
+          onSaved={(data) => setBlogForm((f) => ({ ...f, imageAltText: data.altText, imageTitle: data.title, imageDescription: data.description }))}
+        />
+      )}
     </motion.div>
   );
 }

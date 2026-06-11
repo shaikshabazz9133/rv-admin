@@ -41,6 +41,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+import { resolveImg } from "@/lib/utils";
+
 const API_BASE = "https://dev-backend.rvadventureaustralia.com.au/api";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
@@ -1035,7 +1037,7 @@ export default function OrderDetailPage() {
                   <div className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-xl overflow-hidden bg-white border border-gray-200 shrink-0">
                     {item.product.record.displayPic ? (
                       <Image
-                        src={item.product.record.displayPic}
+                        src={resolveImg(item.product.record.displayPic)}
                         alt={item.product.record.name}
                         fill
                         className="object-contain p-1"

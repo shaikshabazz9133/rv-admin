@@ -26,7 +26,7 @@ import {
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, resolveImg, imgUrl } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 import SeoTab, { type SeoTabHandle } from "@/components/SeoTab";
@@ -89,7 +89,7 @@ interface SparePart {
 interface ProductRecord {
   _id: string;
   name: string;
-  displayPic: string;
+  displayPic: { _id: string; url: string; altText?: string } | string;
   price: number;
   offerPrice: number;
   rating: number;
@@ -486,7 +486,7 @@ function ProductCard({
       <div className="w-full aspect-square bg-gray-50 flex items-center justify-center overflow-hidden border-b border-gray-100">
         {product.displayPic ? (
           <img
-            src={product.displayPic}
+            src={resolveImg(imgUrl(product.displayPic))}
             alt={product.name}
             className="w-full h-full object-contain"
           />

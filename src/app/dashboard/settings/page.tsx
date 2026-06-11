@@ -17,6 +17,8 @@ import {
   Loader2,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import AttachmentDetailsModal from "@/components/AttachmentDetailsModal";
+import { resolveImg, imgUrl } from "@/lib/utils";
 
 const API_BASE = "https://dev-backend.rvadventureaustralia.com.au/api";
 
@@ -49,7 +51,7 @@ interface ShippingRow {
 
 interface Banner {
   _id: string;
-  image: string;
+  image: { _id: string; url: string; altText?: string } | string;
   url: string;
   imageAltText?: string;
   isActive: boolean;
@@ -701,6 +703,7 @@ function BannersTab() {
   const [editTarget, setEditTarget] = useState<Banner | null>(null);
   const [filePreview, setFilePreview] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Banner | null>(null);
+  const [attachTarget, setAttachTarget] = useState<Banner | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(5);
@@ -753,7 +756,7 @@ function BannersTab() {
       url: banner.url ?? "",
       imageAltText: banner.imageAltText ?? "",
     });
-    setFilePreview(banner.image || null);
+    setFilePreview(imgUrl(banner.image) || null);
     if (fileRef.current) fileRef.current.value = "";
     setUploadOpen(true);
   };
@@ -997,14 +1000,22 @@ function BannersTab() {
                   className="hover:bg-gray-50 transition-colors"
                 >
                   <td className="px-4 py-3">
-                    <div className="h-14 w-24 rounded-lg bg-gray-100 flex items-center justify-center overflow-hidden border border-gray-200">
+                    <div
+                      className="h-14 w-24 rounded-lg bg-gray-100 flex items-center justify-center overflow-hidden border border-gray-200 cursor-pointer group relative"
+                      onClick={() => banner.image && setAttachTarget(banner)}
+                    >
                       {banner.image ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={banner.image}
-                          alt="Banner"
-                          className="h-full w-full object-cover"
-                        />
+                        <>
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={resolveImg(imgUrl(banner.image))}
+                            alt="Banner"
+                            className="h-full w-full object-cover"
+                          />
+                          <span className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[10px] font-medium">
+                            Details
+                          </span>
+                        </>
                       ) : (
                         <ImageIcon className="h-5 w-5 text-gray-400" />
                       )}
@@ -1142,7 +1153,7 @@ function BannersTab() {
                   {filePreview ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
-                      src={filePreview}
+                      src={resolveImg(filePreview)}
                       alt="Preview"
                       className="h-full w-full object-contain"
                     />
@@ -1206,6 +1217,17 @@ function BannersTab() {
           </Modal>
         )}
       </AnimatePresence>
+
+      {/* Banner Attachment Details */}
+      {attachTarget && (
+        <AttachmentDetailsModal
+          imageUrl={imgUrl(attachTarget.image)}
+          imageId={attachTarget.image && typeof attachTarget.image === "object" ? attachTarget.image._id : undefined}
+          initialAltText={attachTarget.imageAltText ?? ""}
+          onClose={() => setAttachTarget(null)}
+          onSaved={(data) => setBanners((prev) => prev.map((b) => b._id === attachTarget._id ? { ...b, imageAltText: data.altText } : b))}
+        />
+      )}
     </>
   );
 }

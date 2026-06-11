@@ -30,6 +30,8 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import SeoTab, { type SeoTabHandle } from "@/components/SeoTab";
+import AttachmentDetailsModal from "@/components/AttachmentDetailsModal";
+import { resolveImg, imgUrl } from "@/lib/utils";
 
 // â”€â”€â”€ Constants â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
@@ -254,6 +256,7 @@ interface Category {
   parentCategory: string;
   productsCount: number;
   status: "Active" | "Paused";
+  image?: string;
   children?: Category[];
   expanded?: boolean;
 }
@@ -492,6 +495,22 @@ function CategoryRows({
                   : ""
             }`}
           >
+            {/* Image cell */}
+            <td className="px-4 py-3">
+              {cat.image ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={resolveImg(cat.image)}
+                  alt={cat.name}
+                  className="w-10 h-10 rounded-lg object-contain border border-gray-100 bg-gray-50"
+                />
+              ) : (
+                <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center">
+                  <span className="text-gray-300 text-xs">—</span>
+                </div>
+              )}
+            </td>
+            {/* Name cell */}
             <td className="px-4 py-3">
               <div
                 className="flex items-center"
@@ -645,7 +664,11 @@ export default function ProductsPage() {
     imageAltText: "",
     image: null as string | null,
     existingImage: null as string | null,
+    imageId: undefined as string | undefined,
+    imageTitle: "",
+    imageDescription: "",
   });
+  const [catAttachOpen, setCatAttachOpen] = useState(false);
   const [categoryErrors, setCategoryErrors] = useState<Record<string, string>>(
     {},
   );
@@ -751,6 +774,7 @@ export default function ProductsPage() {
           parentCategory: parentName,
           productsCount: node.productsCount ?? 0,
           status: node.isActive ? "Active" : "Paused",
+          image: imgUrl(node.image ?? node.imageUrl) || undefined,
           expanded: false,
           children,
         };
@@ -889,6 +913,9 @@ export default function ProductsPage() {
       imageAltText: "",
       image: null,
       existingImage: null,
+      imageId: undefined,
+      imageTitle: "",
+      imageDescription: "",
     });
     setCategoryErrors({});
     setShowAddCategory(true);
@@ -909,6 +936,9 @@ export default function ProductsPage() {
       imageAltText: "",
       image: null,
       existingImage: null,
+      imageId: undefined,
+      imageTitle: "",
+      imageDescription: "",
     });
     setCategoryErrors({});
     setShowAddCategory(true);
@@ -938,6 +968,8 @@ export default function ProductsPage() {
           const parentL2 = flatCats.find((c) => c._id === parentL2Id);
           parentL1Id = parentL2?.parent?._id ?? "";
         }
+        const rawImg = d.image;
+        const imgId = rawImg && typeof rawImg === "object" ? (rawImg as Record<string, unknown>)._id as string : undefined;
         setCategoryForm({
           name: d.name ?? "",
           description: d.description ?? "",
@@ -947,8 +979,11 @@ export default function ProductsPage() {
           tags: (d.tags ?? []).join(", "),
           displayPriority: String(d.displayPriority ?? 0),
           imageAltText: d.imageAltText ?? "",
-          image: d.image ?? null,
-          existingImage: d.image ?? null,
+          image: imgUrl(d.image) || null,
+          existingImage: imgUrl(d.image) || null,
+          imageId: imgId,
+          imageTitle: (rawImg as Record<string, unknown>)?.title as string ?? "",
+          imageDescription: (rawImg as Record<string, unknown>)?.description as string ?? "",
         });
       }
     } catch {
@@ -1320,7 +1355,7 @@ export default function ProductsPage() {
                           <div className="w-10 h-10 rounded-md bg-gray-100 border border-gray-200 overflow-hidden flex items-center justify-center flex-shrink-0">
                             {product.displayPic ? (
                               <img
-                                src={product.displayPic}
+                                src={resolveImg(product.displayPic)}
                                 alt={product.name}
                                 className="w-full h-full object-cover"
                                 onError={(e) => {
@@ -1411,6 +1446,9 @@ export default function ProductsPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-200">
+                  <th className="text-left px-4 py-3 font-medium text-gray-600 w-14">
+                    Image
+                  </th>
                   <th className="text-left px-4 py-3 font-medium text-gray-600">
                     Category Name
                   </th>
@@ -1434,14 +1472,14 @@ export default function ProductsPage() {
               <tbody className="divide-y divide-gray-100">
                 {categoriesLoading ? (
                   <tr>
-                    <td colSpan={6} className="px-4 py-12 text-center">
+                    <td colSpan={7} className="px-4 py-12 text-center">
                       <Loader2 className="h-6 w-6 animate-spin text-[#1a2b6b] mx-auto" />
                     </td>
                   </tr>
                 ) : categories.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={6}
+                      colSpan={7}
                       className="px-4 py-12 text-center text-gray-400 text-sm"
                     >
                       No categories found.
@@ -1542,28 +1580,39 @@ export default function ProductsPage() {
             </div>
             <div className="p-4 sm:p-6">
               <div className="flex flex-col sm:flex-row gap-6">
-                <div
-                  className="w-full sm:w-48 h-44 flex-shrink-0 border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-[#1a2b6b] transition-colors overflow-hidden bg-gray-50 self-start"
-                  onClick={() => categoryImageRef.current?.click()}
-                >
-                  {categoryForm.image ? (
-                    <img
-                      src={categoryForm.image}
-                      alt="Category"
-                      className="w-full h-full object-cover"
+                <div className="w-full sm:w-48 flex-shrink-0 self-start space-y-1.5">
+                  <div
+                    className="w-full h-44 border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-[#1a2b6b] transition-colors overflow-hidden bg-gray-50"
+                    onClick={() => categoryImageRef.current?.click()}
+                  >
+                    {categoryForm.image ? (
+                      <img
+                        src={resolveImg(categoryForm.image)}
+                        alt="Category"
+                        className="w-full h-full object-contain p-1"
+                      />
+                    ) : (
+                      <div className="text-gray-400 text-sm text-center px-4 select-none">
+                        <span className="block text-3xl mb-2">+</span>Add Image
+                      </div>
+                    )}
+                    <input
+                      ref={categoryImageRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleCategoryImageChange}
                     />
-                  ) : (
-                    <div className="text-gray-400 text-sm text-center px-4 select-none">
-                      <span className="block text-3xl mb-2">+</span>Add Image
-                    </div>
+                  </div>
+                  {categoryForm.image && (
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); setCatAttachOpen(true); }}
+                      className="w-full text-xs text-[#1a2b6b] hover:underline text-center"
+                    >
+                      Edit attachment details
+                    </button>
                   )}
-                  <input
-                    ref={categoryImageRef}
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={handleCategoryImageChange}
-                  />
                 </div>
                 <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
@@ -1801,6 +1850,19 @@ export default function ProductsPage() {
           </ModalOverlay>
         )}
       </AnimatePresence>
+
+      {/* Category Attachment Details */}
+      {catAttachOpen && categoryForm.image && (
+        <AttachmentDetailsModal
+          imageUrl={categoryForm.image}
+          imageId={categoryForm.imageId}
+          initialTitle={categoryForm.imageTitle}
+          initialAltText={categoryForm.imageAltText}
+          initialDescription={categoryForm.imageDescription}
+          onClose={() => setCatAttachOpen(false)}
+          onSaved={(data) => setCategoryForm((f) => ({ ...f, imageAltText: data.altText, imageTitle: data.title, imageDescription: data.description }))}
+        />
+      )}
 
       {/* â”€â”€ Delete Category Modal */}
       <AnimatePresence>
