@@ -535,7 +535,7 @@ export default function BlogsPage() {
       const imgId = rawImg && typeof rawImg === "object" ? (rawImg as Record<string, unknown>)._id as string : undefined;
       setBlogForm({
         title: detail.title ?? "",
-        imageAltText: detail.imageAltText ?? "",
+        imageAltText: (rawImg && typeof rawImg === "object" ? (rawImg as Record<string, unknown>).altText as string : undefined) ?? detail.imageAltText ?? "",
         categoryId: detail.category?._id ?? "",
         image: null,
         imagePreview: imgUrl(detail.image),
@@ -557,10 +557,13 @@ export default function BlogsPage() {
   };
 
   const handleImageChange = (file: File) => {
+    const filenameTitle = file.name.replace(/\.[^/.]+$/, "");
     setBlogForm((f) => ({
       ...f,
       image: file,
       imagePreview: URL.createObjectURL(file),
+      imageId: undefined,
+      imageTitle: filenameTitle,
     }));
   };
 
@@ -766,6 +769,7 @@ export default function BlogsPage() {
       );
     }
     return (
+      <>
       <motion.div
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
@@ -1104,6 +1108,20 @@ export default function BlogsPage() {
           </div>
         </div>
       </motion.div>
+
+      {/* Blog Attachment Details — add/edit view */}
+      {blogAttachOpen && blogForm.imagePreview && (
+        <AttachmentDetailsModal
+          imageUrl={blogForm.imagePreview}
+          imageId={blogForm.imageId}
+          initialTitle={blogForm.imageTitle}
+          initialAltText={blogForm.imageAltText}
+          initialDescription={blogForm.imageDescription}
+          onClose={() => setBlogAttachOpen(false)}
+          onSaved={(data) => setBlogForm((f) => ({ ...f, imageAltText: data.altText, imageTitle: data.title, imageDescription: data.description }))}
+        />
+      )}
+    </>
     );
   }
 

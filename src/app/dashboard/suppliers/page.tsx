@@ -46,7 +46,6 @@ const API_BASE = "https://dev-backend.rvadventureaustralia.com.au/api";
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MOBILE_REGEX = /^[0-9]{10}$/;
 
-
 const AU_STATES = [
   "New South Wales",
   "Victoria",
@@ -94,6 +93,10 @@ interface FormState {
   banner: File | null;
   logoAltText: string;
   bannerAltText: string;
+  logoTitle: string;
+  logoDescription: string;
+  bannerTitle: string;
+  bannerDescription: string;
 }
 
 type FormErrors = Partial<Record<keyof FormState, string>>;
@@ -113,6 +116,10 @@ const emptyForm: FormState = {
   banner: null,
   logoAltText: "",
   bannerAltText: "",
+  logoTitle: "",
+  logoDescription: "",
+  bannerTitle: "",
+  bannerDescription: "",
 };
 
 function getToken(): string {
@@ -141,6 +148,7 @@ function FileField({
   error,
   existingUrl,
   onImageClick,
+  onPreviewUrl,
 }: {
   label: string;
   required?: boolean;
@@ -149,21 +157,39 @@ function FileField({
   error?: string;
   existingUrl?: string;
   onImageClick?: () => void;
+  onPreviewUrl?: (url: string | null) => void;
 }) {
   const ref = useRef<HTMLInputElement>(null);
+  const [blobUrl, setBlobUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!value) {
+      setBlobUrl(null);
+      onPreviewUrl?.(existingUrl ? resolveImg(existingUrl) : null);
+      return;
+    }
+    const url = URL.createObjectURL(value);
+    setBlobUrl(url);
+    onPreviewUrl?.(url);
+    return () => URL.revokeObjectURL(url);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value, existingUrl]);
+
+  const previewSrc = value ? blobUrl : existingUrl ? resolveImg(existingUrl) : null;
+
   return (
     <div className="space-y-1.5">
       <Label className="text-[13px] font-semibold text-[#1a2b6b]">
         {label}
         {required && <RequiredStar />}
       </Label>
-      {existingUrl && !value && (
+      {previewSrc && (
         <div className="mb-2 w-full h-36 rounded-lg border border-input bg-gray-50 overflow-hidden flex items-center justify-center relative group">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={resolveImg(existingUrl)}
+            src={previewSrc}
             alt="current"
-            className="w-full h-full object-contain p-2"
+            className="max-w-full max-h-full object-contain p-2"
           />
           {onImageClick && (
             <button
@@ -328,7 +354,11 @@ export default function SuppliersPage() {
   const [existingBanner, setExistingBanner] = useState("");
   const [logoImageId, setLogoImageId] = useState<string | undefined>();
   const [bannerImageId, setBannerImageId] = useState<string | undefined>();
-  const [attachTarget, setAttachTarget] = useState<"logo" | "banner" | null>(null);
+  const [logoPreviewUrl, setLogoPreviewUrl] = useState<string | null>(null);
+  const [bannerPreviewUrl, setBannerPreviewUrl] = useState<string | null>(null);
+  const [attachTarget, setAttachTarget] = useState<"logo" | "banner" | null>(
+    null,
+  );
   const [formKey, setFormKey] = useState(0);
   const [page, setPage] = useState(1);
   const supplierSeoRef = useRef<SeoTabHandle>(null);
@@ -445,14 +475,44 @@ export default function SuppliersPage() {
       taxNumber: s.taxNumber ?? "",
       logo: null,
       banner: null,
-      logoAltText: (s as any).logoAltText ?? "",
-      bannerAltText: (s as any).bannerAltText ?? "",
+      logoAltText:
+        (s.logo && typeof s.logo === "object"
+          ? (s.logo as any).altText
+          : undefined) ??
+        (s as any).logoAltText ??
+        "",
+      bannerAltText:
+        (s.banner && typeof s.banner === "object"
+          ? (s.banner as any).altText
+          : undefined) ??
+        (s as any).bannerAltText ??
+        "",
+      logoTitle:
+        s.logo && typeof s.logo === "object"
+          ? ((s.logo as any).title ?? "")
+          : "",
+      logoDescription:
+        s.logo && typeof s.logo === "object"
+          ? ((s.logo as any).description ?? "")
+          : "",
+      bannerTitle:
+        s.banner && typeof s.banner === "object"
+          ? ((s.banner as any).title ?? "")
+          : "",
+      bannerDescription:
+        s.banner && typeof s.banner === "object"
+          ? ((s.banner as any).description ?? "")
+          : "",
     });
     setErrors({});
     setExistingLogo(imgUrl(s.logo));
     setExistingBanner(imgUrl(s.banner));
-    setLogoImageId(s.logo && typeof s.logo === "object" ? s.logo._id : undefined);
-    setBannerImageId(s.banner && typeof s.banner === "object" ? s.banner._id : undefined);
+    setLogoImageId(
+      s.logo && typeof s.logo === "object" ? s.logo._id : undefined,
+    );
+    setBannerImageId(
+      s.banner && typeof s.banner === "object" ? s.banner._id : undefined,
+    );
     setFormKey((k) => k + 1);
     setOpen(true);
   };
@@ -489,8 +549,10 @@ export default function SuppliersPage() {
         if (form.logo) fd.append("logo", form.logo);
         if (form.banner) fd.append("banner", form.banner);
       }
-      if (form.logoAltText.trim()) fd.append("logoAltText", form.logoAltText.trim());
-      if (form.bannerAltText.trim()) fd.append("bannerAltText", form.bannerAltText.trim());
+      if (form.logoAltText.trim())
+        fd.append("logoAltText", form.logoAltText.trim());
+      if (form.bannerAltText.trim())
+        fd.append("bannerAltText", form.bannerAltText.trim());
       const res = await fetch(`${API_BASE}/supplier`, {
         method: editingId ? "PATCH" : "POST",
         headers: {
@@ -634,9 +696,9 @@ export default function SuppliersPage() {
               <Table>
                 <TableHeader>
                   <TableRow className="bg-white dark:bg-card border-b">
-                    <TableHead className="font-bold text-foreground w-14">
+                    {/* <TableHead className="font-bold text-foreground w-14">
                       Logo
-                    </TableHead>
+                    </TableHead> */}
                     <TableHead className="font-bold text-foreground">
                       Supplier Name
                     </TableHead>
@@ -679,7 +741,7 @@ export default function SuppliersPage() {
                         key={s._id}
                         className={!s.isActive ? "opacity-50" : ""}
                       >
-                        <TableCell>
+                        {/* <TableCell>
                           {imgUrl(s.logo) ? (
                             // eslint-disable-next-line @next/next/no-img-element
                             <img
@@ -692,7 +754,7 @@ export default function SuppliersPage() {
                               {s.name.charAt(0).toUpperCase()}
                             </div>
                           )}
-                        </TableCell>
+                        </TableCell> */}
                         <TableCell className="font-medium">{s.name}</TableCell>
                         <TableCell className="text-muted-foreground">
                           {s.code}
@@ -978,9 +1040,10 @@ export default function SuppliersPage() {
                   onChange={(f) => setField("logo", f)}
                   error={errors.logo}
                   existingUrl={existingLogo}
-                  onImageClick={existingLogo ? () => setAttachTarget("logo") : undefined}
+                  onPreviewUrl={setLogoPreviewUrl}
+                  onImageClick={() => setAttachTarget("logo")}
                 />
-                <div className="space-y-1.5">
+                {/* <div className="space-y-1.5">
                   <Label className="text-[13px] font-semibold text-[#1a2b6b]">
                     Logo Alt Text
                   </Label>
@@ -990,7 +1053,7 @@ export default function SuppliersPage() {
                     onChange={(e) => setField("logoAltText", e.target.value)}
                     className="text-gray-900"
                   />
-                </div>
+                </div> */}
               </div>
               <div className="space-y-3">
                 <FileField
@@ -998,9 +1061,10 @@ export default function SuppliersPage() {
                   value={form.banner}
                   onChange={(f) => setField("banner", f)}
                   existingUrl={existingBanner}
-                  onImageClick={existingBanner ? () => setAttachTarget("banner") : undefined}
+                  onPreviewUrl={setBannerPreviewUrl}
+                  onImageClick={() => setAttachTarget("banner")}
                 />
-                <div className="space-y-1.5">
+                {/* <div className="space-y-1.5">
                   <Label className="text-[13px] font-semibold text-[#1a2b6b]">
                     Banner Alt Text
                   </Label>
@@ -1010,7 +1074,7 @@ export default function SuppliersPage() {
                     onChange={(e) => setField("bannerAltText", e.target.value)}
                     className="text-gray-900"
                   />
-                </div>
+                </div> */}
               </div>
             </div>
             <div className="space-y-1.5">
@@ -1028,13 +1092,15 @@ export default function SuppliersPage() {
           </div>
           {/* SEO Details */}
           <div className="px-6 pb-5 border-t border-gray-100 pt-5">
-            <p className="text-sm font-semibold text-[#1a2b6b] mb-4">SEO Details</p>
+            <p className="text-sm font-semibold text-[#1a2b6b] mb-4">
+              SEO Details
+            </p>
             <SeoTab
               ref={supplierSeoRef}
               key={editingId ?? "new-supplier"}
               productName={form.name}
               urlPrefix="/brands"
-              image={resolveImg(existingLogo) || undefined}
+              image={logoPreviewUrl || undefined}
             />
           </div>
 
@@ -1158,22 +1224,34 @@ export default function SuppliersPage() {
       </Dialog>
 
       {/* Supplier Attachment Details */}
-      {attachTarget === "logo" && existingLogo && (
+      {attachTarget === "logo" && logoPreviewUrl && (
         <AttachmentDetailsModal
-          imageUrl={existingLogo}
+          imageUrl={logoPreviewUrl}
           imageId={logoImageId}
+          initialTitle={form.logoTitle}
           initialAltText={form.logoAltText}
+          initialDescription={form.logoDescription}
           onClose={() => setAttachTarget(null)}
-          onSaved={(data) => { setField("logoAltText", data.altText); }}
+          onSaved={(data) => {
+            setField("logoAltText", data.altText);
+            setField("logoTitle", data.title);
+            setField("logoDescription", data.description);
+          }}
         />
       )}
-      {attachTarget === "banner" && existingBanner && (
+      {attachTarget === "banner" && bannerPreviewUrl && (
         <AttachmentDetailsModal
-          imageUrl={existingBanner}
+          imageUrl={bannerPreviewUrl}
           imageId={bannerImageId}
+          initialTitle={form.bannerTitle}
           initialAltText={form.bannerAltText}
+          initialDescription={form.bannerDescription}
           onClose={() => setAttachTarget(null)}
-          onSaved={(data) => { setField("bannerAltText", data.altText); }}
+          onSaved={(data) => {
+            setField("bannerAltText", data.altText);
+            setField("bannerTitle", data.title);
+            setField("bannerDescription", data.description);
+          }}
         />
       )}
     </div>

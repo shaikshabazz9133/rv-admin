@@ -51,9 +51,11 @@ interface ShippingRow {
 
 interface Banner {
   _id: string;
-  image: { _id: string; url: string; altText?: string } | string;
+  image: { _id: string; url: string; altText?: string; title?: string; description?: string } | string;
   url: string;
   imageAltText?: string;
+  imageTitle?: string;
+  imageDescription?: string;
   isActive: boolean;
   insertedAt: number;
 }
@@ -1223,9 +1225,11 @@ function BannersTab() {
         <AttachmentDetailsModal
           imageUrl={imgUrl(attachTarget.image)}
           imageId={attachTarget.image && typeof attachTarget.image === "object" ? attachTarget.image._id : undefined}
-          initialAltText={attachTarget.imageAltText ?? ""}
+          initialTitle={attachTarget.imageTitle ?? (attachTarget.image && typeof attachTarget.image === "object" ? attachTarget.image.title ?? "" : "")}
+          initialAltText={attachTarget.imageAltText ?? (attachTarget.image && typeof attachTarget.image === "object" ? attachTarget.image.altText ?? "" : "")}
+          initialDescription={attachTarget.imageDescription ?? (attachTarget.image && typeof attachTarget.image === "object" ? attachTarget.image.description ?? "" : "")}
           onClose={() => setAttachTarget(null)}
-          onSaved={(data) => setBanners((prev) => prev.map((b) => b._id === attachTarget._id ? { ...b, imageAltText: data.altText } : b))}
+          onSaved={(data) => setBanners((prev) => prev.map((b) => b._id === attachTarget._id ? { ...b, imageAltText: data.altText, imageTitle: data.title, imageDescription: data.description } : b))}
         />
       )}
     </>

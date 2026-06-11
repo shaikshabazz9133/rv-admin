@@ -9,6 +9,7 @@ import {
 } from "react";
 import { Loader2, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { resolveImg } from "@/lib/utils";
 
 const API_BASE = "https://dev-backend.rvadventureaustralia.com.au/api";
 
@@ -379,11 +380,11 @@ const SeoTab = forwardRef<SeoTabHandle, SeoTabProps>(function SeoTab(
           </p>
           <div className="flex items-start gap-4">
             {image && (
-              <div className="shrink-0 w-24 h-24 rounded-lg overflow-hidden border border-gray-200 bg-gray-50">
+              <div className="shrink-0 w-24 h-24 rounded-lg overflow-hidden border border-gray-200 bg-gray-50 flex items-center justify-center">
                 <img
-                  src={image}
+                  src={resolveImg(image)}
                   alt="preview"
-                  className="w-full h-full object-cover"
+                  className="max-w-full max-h-full object-contain block"
                 />
               </div>
             )}

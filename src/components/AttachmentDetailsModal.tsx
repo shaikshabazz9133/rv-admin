@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { X, Loader2 } from "lucide-react";
+import * as DialogPrimitive from "@radix-ui/react-dialog";
+import { Loader2 } from "lucide-react";
 import { resolveImg } from "@/lib/utils";
 
 const API_BASE = "https://dev-backend.rvadventureaustralia.com.au/api";
@@ -30,14 +31,16 @@ export default function AttachmentDetailsModal({
   onClose,
   onSaved,
 }: AttachmentDetailsModalProps) {
+  const resolved = resolveImg(imageUrl);
+  const filenameTitle = resolved.split("/").pop()?.split("?")[0]?.replace(/\.[^/.]+$/, "") ?? "";
+
   const [form, setForm] = useState({
-    title: initialTitle,
+    title: initialTitle || filenameTitle,
     altText: initialAltText,
     description: initialDescription,
   });
   const [saving, setSaving] = useState(false);
   const [copied, setCopied] = useState(false);
-  const resolved = resolveImg(imageUrl);
 
   const copyUrl = () => {
     navigator.clipboard.writeText(resolved).then(() => {
@@ -58,9 +61,9 @@ export default function AttachmentDetailsModal({
     try {
       const fd = new FormData();
       fd.append("imageId", imageId);
-      if (form.title.trim()) fd.append("title", form.title.trim());
-      if (form.altText.trim()) fd.append("altText", form.altText.trim());
-      if (form.description.trim()) fd.append("description", form.description.trim());
+      fd.append("title", form.title.trim());
+      fd.append("altText", form.altText.trim());
+      fd.append("description", form.description.trim());
       await fetch(`${API_BASE}/image`, {
         method: "PATCH",
         headers: { authorization: `Bearer ${token}`, "x-app-client": "ADMIN_PANEL" },
@@ -76,101 +79,133 @@ export default function AttachmentDetailsModal({
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
-      onClick={(e) => e.target === e.currentTarget && onClose()}
-    >
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl flex flex-col h-[82vh] min-h-[540px] overflow-hidden ring-1 ring-black/5">
-
-        {/* Header */}
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-100 flex-shrink-0">
-          <h2 className="text-sm font-semibold text-gray-900">Attachment details</h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-
-        {/* Body */}
-        <div className="flex flex-1 overflow-hidden min-h-0">
-
-          {/* Left — image */}
-          <div className="w-[45%] bg-[#f5f6f8] border-r border-gray-100 flex flex-col items-center justify-center p-6 gap-3 flex-shrink-0">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={resolved}
-              alt={form.altText || "Attachment"}
-              className="max-w-full max-h-[55vh] object-contain rounded-xl shadow-sm"
-            />
-            <p className="text-[10px] text-gray-400 text-center break-all leading-relaxed w-full">
-              {resolved.split("/").pop()?.split("?")[0] ?? ""}
-            </p>
+    <DialogPrimitive.Root open onOpenChange={(open) => !open && onClose()}>
+      <DialogPrimitive.Portal>
+        {/* Overlay */}
+        <DialogPrimitive.Overlay
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 200,
+            backgroundColor: "rgba(0,0,0,0.5)",
+          }}
+        />
+        {/* Content — centered via inline styles, no Tailwind transform classes */}
+        <DialogPrimitive.Content
+          onInteractOutside={onClose}
+          onEscapeKeyDown={onClose}
+          style={{
+            position: "fixed",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            zIndex: 201,
+            width: "calc(100vw - 32px)",
+            maxWidth: "768px",
+            maxHeight: "80vh",
+            backgroundColor: "#fff",
+            borderRadius: "16px",
+            boxShadow: "0 25px 50px -12px rgba(0,0,0,0.25)",
+            overflow: "hidden",
+            display: "flex",
+            flexDirection: "column",
+          }}
+        >
+          {/* Header */}
+          <div style={{ flexShrink: 0, padding: "12px 20px", borderBottom: "1px solid #f3f4f6", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <span style={{ fontSize: "14px", fontWeight: 600, color: "#111827" }}>Attachment details</span>
+            <button
+              type="button"
+              onClick={onClose}
+              style={{ width: 24, height: 24, borderRadius: "50%", border: "none", background: "transparent", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "#9ca3af", fontSize: 18, lineHeight: 1 }}
+            >
+              ×
+            </button>
           </div>
 
-          {/* Right — fields + footer */}
-          <div className="flex-1 flex flex-col overflow-hidden">
-            <div className="flex-1 overflow-y-auto px-5 py-5 space-y-4">
+          {/* Body */}
+          <div style={{ display: "flex", overflow: "hidden", maxHeight: "calc(80vh - 112px)" }}>
 
-              <div className="space-y-1.5">
-                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide">Alternative Text</label>
-                <input
-                  type="text"
-                  value={form.altText}
-                  onChange={(e) => setForm((f) => ({ ...f, altText: e.target.value }))}
-                  placeholder="Describe the image…"
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#1a2b6b]/20 focus:border-[#1a2b6b] transition-colors"
-                />
-                <p className="text-[11px] text-gray-400">Leave empty if the image is purely decorative.</p>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide">Title</label>
-                <input
-                  type="text"
-                  value={form.title}
-                  onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
-                  placeholder="Image title…"
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#1a2b6b]/20 focus:border-[#1a2b6b] transition-colors"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide">Description</label>
-                <textarea
-                  value={form.description}
-                  onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-                  placeholder="Add a caption or longer description…"
-                  rows={3}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#1a2b6b]/20 focus:border-[#1a2b6b] transition-colors resize-none"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide">File URL</label>
-                <div className="flex items-center gap-2 px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg">
-                  <span className="flex-1 text-xs text-gray-500 truncate font-mono">{resolved}</span>
-                  <button
-                    type="button"
-                    onClick={copyUrl}
-                    className={`flex-shrink-0 text-xs px-2.5 py-1 rounded-md font-medium border transition-all ${copied ? "bg-green-50 text-green-600 border-green-200" : "bg-white text-gray-600 border-gray-200 hover:border-[#1a2b6b]/40 hover:text-[#1a2b6b]"}`}
-                  >
-                    {copied ? "✓ Copied" : "Copy"}
-                  </button>
-                </div>
-              </div>
-
+            {/* Left — image */}
+            <div style={{ width: "42%", flexShrink: 0, backgroundColor: "#f5f6f8", borderRight: "1px solid #f3f4f6", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "20px", gap: "8px" }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={resolved}
+                alt={form.altText || "Attachment"}
+                style={{ maxWidth: "100%", maxHeight: "42vh", objectFit: "contain", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.1)" }}
+              />
+              <p style={{ fontSize: "10px", color: "#9ca3af", textAlign: "center", wordBreak: "break-all", lineHeight: 1.5, width: "100%" }}>
+                {resolved.split("/").pop()?.split("?")[0] ?? ""}
+              </p>
             </div>
 
-            {/* Sticky footer */}
-            <div className="flex-shrink-0 px-5 py-4 border-t border-gray-100 bg-white">
-              <div className="flex gap-2.5">
+            {/* Right — fields + footer */}
+            <div style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0, minWidth: 0 }}>
+              {/* Scrollable fields */}
+              <div style={{ overflowY: "auto", padding: "16px 20px", display: "flex", flexDirection: "column", gap: "14px" }}>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                  <label style={{ fontSize: "11px", fontWeight: 600, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.05em" }}>Alternative Text</label>
+                  <input
+                    type="text"
+                    value={form.altText}
+                    onChange={(e) => setForm((f) => ({ ...f, altText: e.target.value }))}
+                    placeholder="Describe the image…"
+                    style={{ width: "100%", border: "1px solid #e5e7eb", borderRadius: "8px", padding: "8px 12px", fontSize: "14px", color: "#1f2937", outline: "none", boxSizing: "border-box" }}
+                    onFocus={(e) => { e.target.style.borderColor = "#1a2b6b"; e.target.style.boxShadow = "0 0 0 3px rgba(26,43,107,0.1)"; }}
+                    onBlur={(e) => { e.target.style.borderColor = "#e5e7eb"; e.target.style.boxShadow = "none"; }}
+                  />
+                  <span style={{ fontSize: "10px", color: "#9ca3af" }}>Leave empty if purely decorative.</span>
+                </div>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                  <label style={{ fontSize: "11px", fontWeight: 600, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.05em" }}>Title</label>
+                  <input
+                    type="text"
+                    value={form.title}
+                    onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
+                    placeholder="Image title…"
+                    style={{ width: "100%", border: "1px solid #e5e7eb", borderRadius: "8px", padding: "8px 12px", fontSize: "14px", color: "#1f2937", outline: "none", boxSizing: "border-box" }}
+                    onFocus={(e) => { e.target.style.borderColor = "#1a2b6b"; e.target.style.boxShadow = "0 0 0 3px rgba(26,43,107,0.1)"; }}
+                    onBlur={(e) => { e.target.style.borderColor = "#e5e7eb"; e.target.style.boxShadow = "none"; }}
+                  />
+                </div>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                  <label style={{ fontSize: "11px", fontWeight: 600, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.05em" }}>Description</label>
+                  <textarea
+                    value={form.description}
+                    onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+                    placeholder="Add a caption or longer description…"
+                    rows={2}
+                    style={{ width: "100%", border: "1px solid #e5e7eb", borderRadius: "8px", padding: "8px 12px", fontSize: "14px", color: "#1f2937", outline: "none", resize: "none", boxSizing: "border-box" }}
+                    onFocus={(e) => { e.target.style.borderColor = "#1a2b6b"; e.target.style.boxShadow = "0 0 0 3px rgba(26,43,107,0.1)"; }}
+                    onBlur={(e) => { e.target.style.borderColor = "#e5e7eb"; e.target.style.boxShadow = "none"; }}
+                  />
+                </div>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                  <label style={{ fontSize: "11px", fontWeight: 600, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.05em" }}>File URL</label>
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px", padding: "8px 12px", backgroundColor: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: "8px" }}>
+                    <span style={{ flex: 1, fontSize: "11px", color: "#6b7280", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontFamily: "monospace" }}>{resolved}</span>
+                    <button
+                      type="button"
+                      onClick={copyUrl}
+                      style={{ flexShrink: 0, fontSize: "11px", padding: "4px 8px", borderRadius: "6px", fontWeight: 500, border: copied ? "1px solid #bbf7d0" : "1px solid #e5e7eb", backgroundColor: copied ? "#f0fdf4" : "#fff", color: copied ? "#16a34a" : "#4b5563", cursor: "pointer" }}
+                    >
+                      {copied ? "✓ Copied" : "Copy"}
+                    </button>
+                  </div>
+                </div>
+
+              </div>
+
+              {/* Sticky footer */}
+              <div style={{ flexShrink: 0, padding: "12px 20px", borderTop: "1px solid #f3f4f6", backgroundColor: "#fff", display: "flex", gap: "10px" }}>
                 <button
                   type="button"
                   onClick={onClose}
-                  className="flex-1 h-10 border border-gray-200 rounded-xl text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors"
+                  style={{ flex: 1, height: "36px", border: "1px solid #e5e7eb", borderRadius: "12px", fontSize: "14px", fontWeight: 500, color: "#4b5563", backgroundColor: "#fff", cursor: "pointer" }}
                 >
                   Cancel
                 </button>
@@ -178,19 +213,15 @@ export default function AttachmentDetailsModal({
                   type="button"
                   onClick={handleSave}
                   disabled={saving}
-                  className="flex-1 h-10 bg-[#1a2b6b] hover:bg-[#142258] text-white rounded-xl text-sm font-semibold transition-colors disabled:opacity-60 flex items-center justify-center gap-2 shadow-sm"
+                  style={{ flex: 1, height: "36px", border: "none", borderRadius: "12px", fontSize: "14px", fontWeight: 600, color: "#fff", backgroundColor: saving ? "#6b7280" : "#1a2b6b", cursor: saving ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}
                 >
-                  {saving ? (
-                    <><Loader2 className="h-3.5 w-3.5 animate-spin" />Saving…</>
-                  ) : (
-                    "Save Details"
-                  )}
+                  {saving ? <><Loader2 style={{ width: 14, height: 14 }} className="animate-spin" />Saving…</> : "Save Details"}
                 </button>
               </div>
             </div>
           </div>
-        </div>
-      </div>
-    </div>
+        </DialogPrimitive.Content>
+      </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
   );
 }

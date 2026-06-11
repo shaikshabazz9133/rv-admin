@@ -3,7 +3,17 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { Plus, X, Loader2, Search, Trash2, ChevronLeft, ChevronRight, ChevronDown, Check } from "lucide-react";
+import {
+  Plus,
+  X,
+  Loader2,
+  Search,
+  Trash2,
+  ChevronLeft,
+  ChevronRight,
+  ChevronDown,
+  Check,
+} from "lucide-react";
 import Link from "next/link";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -14,6 +24,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import SeoTab, { type SeoTabHandle } from "@/components/SeoTab";
+import * as DialogPrimitive from "@radix-ui/react-dialog";
 
 const API_BASE = "https://dev-backend.rvadventureaustralia.com.au/api";
 
@@ -354,12 +365,24 @@ function ProductCard({
       <div className="absolute top-2 left-2 z-10">
         <div
           className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors shadow-sm ${
-            selected ? "bg-[#1a2b6b] border-[#1a2b6b]" : "bg-white border-gray-300"
+            selected
+              ? "bg-[#1a2b6b] border-[#1a2b6b]"
+              : "bg-white border-gray-300"
           }`}
         >
           {selected && (
-            <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+            <svg
+              className="w-3 h-3 text-white"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={3}
+                d="M5 13l4 4L19 7"
+              />
             </svg>
           )}
         </div>
@@ -385,11 +408,18 @@ function ProductCard({
         {/* Stars */}
         <div className="flex items-center gap-0.5 mb-1.5">
           {[1, 2, 3, 4, 5].map((s) => (
-            <svg key={s} className="w-3 h-3 text-gray-200" fill="currentColor" viewBox="0 0 24 24">
+            <svg
+              key={s}
+              className="w-3 h-3 text-gray-200"
+              fill="currentColor"
+              viewBox="0 0 24 24"
+            >
               <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" />
             </svg>
           ))}
-          <span className="text-[10px] text-gray-400 ml-1">Reviews ({reviewCount})</span>
+          <span className="text-[10px] text-gray-400 ml-1">
+            Reviews ({reviewCount})
+          </span>
         </div>
 
         {/* Name */}
@@ -399,7 +429,9 @@ function ProductCard({
 
         {/* Category */}
         {product.category?.name && (
-          <p className="text-[11px] text-gray-400 mb-1">{product.category.name}</p>
+          <p className="text-[11px] text-gray-400 mb-1">
+            {product.category.name}
+          </p>
         )}
 
         {/* Description */}
@@ -450,7 +482,9 @@ function ProductSearchTab({
         pageNo: String(p),
         pageSize: String(PAGE_SIZE),
       });
-      fetch(`${API_BASE}/product/all?${params}`, { headers: authHeaders(token) })
+      fetch(`${API_BASE}/product/all?${params}`, {
+        headers: authHeaders(token),
+      })
         .then((r) => r.json())
         .then((d) => {
           setProducts(d.data?.records?.products ?? []);
@@ -523,7 +557,8 @@ function ProductSearchTab({
           {totalPages > 1 && (
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mt-5 pt-4 border-t border-gray-100">
               <p className="text-xs text-gray-500">
-                Showing {total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1}&ndash;{Math.min(page * PAGE_SIZE, total)} of {total}
+                Showing {total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1}&ndash;
+                {Math.min(page * PAGE_SIZE, total)} of {total}
               </p>
               <div className="flex items-center gap-2">
                 <button
@@ -541,19 +576,31 @@ function ProductSearchTab({
                     } else {
                       pages.push(1);
                       if (page > 3) pages.push("...");
-                      for (let i = Math.max(2, page - 1); i <= Math.min(totalPages - 1, page + 1); i++) pages.push(i);
+                      for (
+                        let i = Math.max(2, page - 1);
+                        i <= Math.min(totalPages - 1, page + 1);
+                        i++
+                      )
+                        pages.push(i);
                       if (page < totalPages - 2) pages.push("...");
                       pages.push(totalPages);
                     }
                     return pages.map((pg, i) =>
                       pg === "..." ? (
-                        <span key={`d${i}`} className="w-7 text-center text-xs text-gray-400">&hellip;</span>
+                        <span
+                          key={`d${i}`}
+                          className="w-7 text-center text-xs text-gray-400"
+                        >
+                          &hellip;
+                        </span>
                       ) : (
                         <button
                           key={pg}
                           onClick={() => setPage(pg as number)}
                           className={`w-8 h-7 rounded-xl text-xs font-semibold transition-all ${
-                            pg === page ? "bg-[#1a2b6b] text-white shadow-sm" : "text-gray-500 hover:text-[#1a2b6b] hover:bg-white"
+                            pg === page
+                              ? "bg-[#1a2b6b] text-white shadow-sm"
+                              : "text-gray-500 hover:text-[#1a2b6b] hover:bg-white"
                           }`}
                         >
                           {pg}
@@ -563,7 +610,9 @@ function ProductSearchTab({
                   })()}
                 </div>
                 <button
-                  onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
+                  onClick={() =>
+                    setPage((prev) => Math.min(totalPages, prev + 1))
+                  }
                   disabled={page === totalPages || loading}
                   className="w-8 h-8 rounded-full border border-gray-200 bg-white flex items-center justify-center text-gray-500 hover:border-[#1a2b6b] hover:text-[#1a2b6b] disabled:opacity-30 disabled:cursor-not-allowed transition-all"
                 >
@@ -842,8 +891,8 @@ function EbayCategoryPicker({
         const list: EbayCategory[] = Array.isArray(d)
           ? d
           : Array.isArray(d?.data)
-          ? d.data
-          : (d?.data?.categories ?? d?.categories ?? []);
+            ? d.data
+            : (d?.data?.categories ?? d?.categories ?? []);
         setRootCats(list);
       })
       .catch(() => {})
@@ -862,8 +911,9 @@ function EbayCategoryPicker({
   const currentNode = browsePath[browsePath.length - 1] ?? null;
 
   // Items to show at current level
-  const currentItems: EbayCategory[] =
-    currentNode ? (currentNode.children ?? []) : rootCats;
+  const currentItems: EbayCategory[] = currentNode
+    ? (currentNode.children ?? [])
+    : rootCats;
 
   // Filter by search query
   const filteredItems = search
@@ -905,13 +955,11 @@ function EbayCategoryPicker({
     depth === 0
       ? "L1 \u2014 TOP LEVEL"
       : depth === 1
-      ? "L2 \u2014 SUB CATEGORIES"
-      : `L${depth + 1} \u2014 LEAF CATEGORIES`;
+        ? "L2 \u2014 SUB CATEGORIES"
+        : `L${depth + 1} \u2014 LEAF CATEGORIES`;
 
   const displayName =
-    value && valuePath.length > 0
-      ? valuePath[valuePath.length - 1].name
-      : "";
+    value && valuePath.length > 0 ? valuePath[valuePath.length - 1].name : "";
 
   return (
     <>
@@ -933,7 +981,10 @@ function EbayCategoryPicker({
           {valuePath.map((p, i) => (
             <>
               {i > 0 && (
-                <ChevronRight className="h-3 w-3 text-gray-400 shrink-0" key={`arr-${p.id}`} />
+                <ChevronRight
+                  className="h-3 w-3 text-gray-400 shrink-0"
+                  key={`arr-${p.id}`}
+                />
               )}
               <span
                 key={p.id}
@@ -1075,7 +1126,9 @@ function EbayCategoryPicker({
                           </button>
                         ) : (
                           <div className="flex items-center gap-1 text-gray-400 group-hover:text-[#1a2b6b] transition-colors shrink-0">
-                            <span className="text-xs font-semibold">{count}</span>
+                            <span className="text-xs font-semibold">
+                              {count}
+                            </span>
                             <ChevronRight className="h-4 w-4" />
                           </div>
                         )}
@@ -1144,7 +1197,10 @@ export default function AddProductPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
+  const [imageMetadata, setImageMetadata] = useState<{ title: string; altText: string; description: string }[]>([]);
   const [displayImageIdx, setDisplayImageIdx] = useState(0);
+  const [attachIdx, setAttachIdx] = useState<number | null>(null);
+  const [attachForm, setAttachForm] = useState({ title: "", altText: "", description: "" });
 
   // ── Tab content
   const [activeTab, setActiveTab] = useState<
@@ -1271,6 +1327,14 @@ export default function AddProductPage() {
     const previewUrls = files.map((f) => URL.createObjectURL(f));
     setImageFiles((prev) => [...prev, ...files]);
     setImagePreviews((prev) => [...prev, ...previewUrls]);
+    setImageMetadata((prev) => [
+      ...prev,
+      ...files.map((f) => ({
+        title: f.name.replace(/\.[^/.]+$/, ""),
+        altText: "",
+        description: "",
+      })),
+    ]);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -1321,7 +1385,14 @@ export default function AddProductPage() {
           .filter((item) => item.value !== "");
         return key ? { key, values } : null;
       })
-      .filter((item): item is { key: string; values: { column: string; value: string }[] } => !!item);
+      .filter(
+        (
+          item,
+        ): item is {
+          key: string;
+          values: { column: string; value: string }[];
+        } => !!item,
+      );
 
     fd.append("name", form.name);
     fd.append("description", description);
@@ -1347,8 +1418,10 @@ export default function AddProductPage() {
     fd.append("ebayReturnPolicyId", form.ebayReturnPolicyId);
     fd.append("ebayShippingPolicyId", form.ebayFulfillmentPolicyId);
     fd.append("tags", "");
-    if (form.displayPicAltText.trim()) fd.append("displayPicAltText", form.displayPicAltText.trim());
-    if (form.imagesAltText.trim()) fd.append("imagesAltText", form.imagesAltText.trim());
+    if (form.displayPicAltText.trim())
+      fd.append("displayPicAltText", form.displayPicAltText.trim());
+    if (form.imagesAltText.trim())
+      fd.append("imagesAltText", form.imagesAltText.trim());
     fd.append("hasFreeShipping", form.freeShipping || "false");
     fd.append("isActive", status === "active" ? "true" : "false");
     // Display picture
@@ -1435,6 +1508,7 @@ export default function AddProductPage() {
   ] as const;
 
   return (
+    <>
     <motion.div
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
@@ -1511,7 +1585,11 @@ export default function AddProductPage() {
                 {imagePreviews.map((preview, i) => (
                   <div
                     key={i}
-                    onClick={() => setDisplayImageIdx(i)}
+                    onClick={() => {
+                      setDisplayImageIdx(i);
+                      setAttachForm(imageMetadata[i] ?? { title: imageFiles[i]?.name.replace(/\.[^/.]+$/, "") ?? "", altText: "", description: "" });
+                      setAttachIdx(i);
+                    }}
                     className={`relative w-16 h-16 rounded-lg border-2 overflow-hidden cursor-pointer transition-colors ${
                       i === displayImageIdx
                         ? "border-[#1a2b6b]"
@@ -1536,15 +1614,14 @@ export default function AddProductPage() {
                       onClick={(e) => {
                         e.stopPropagation();
                         URL.revokeObjectURL(imagePreviews[i]);
-                        setImageFiles((prev) =>
-                          prev.filter((_, idx) => idx !== i),
-                        );
+                        setImageFiles((prev) => prev.filter((_, idx) => idx !== i));
                         setImagePreviews((prev) => {
                           const next = prev.filter((_, idx) => idx !== i);
                           if (displayImageIdx >= next.length)
                             setDisplayImageIdx(Math.max(0, next.length - 1));
                           return next;
                         });
+                        setImageMetadata((prev) => prev.filter((_, idx) => idx !== i));
                       }}
                       className="absolute top-0.5 right-0.5 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center hover:bg-red-600"
                     >
@@ -1713,7 +1790,7 @@ export default function AddProductPage() {
                 disabled={cat2Ids.length === 0 || cat3Options.length === 0}
               />
             </Field>
-            <Field label="Display Pic Alt Text">
+            {/* <Field label="Display Pic Alt Text">
               <input
                 value={form.displayPicAltText}
                 onChange={(e) => set("displayPicAltText", e.target.value)}
@@ -1728,7 +1805,7 @@ export default function AddProductPage() {
                 placeholder="Enter gallery images alt text"
                 className={inputCls}
               />
-            </Field>
+            </Field> */}
             <Field label="Display Picture" required error={errors.displayImage}>
               <Select
                 value={
@@ -1991,10 +2068,77 @@ export default function AddProductPage() {
             />
           )}
           {activeTab === "seo" && (
-            <SeoTab ref={seoRef} productName={form.name} image={imagePreviews[displayImageIdx]} />
+            <SeoTab
+              ref={seoRef}
+              productName={form.name}
+              image={imagePreviews[displayImageIdx]}
+            />
           )}
         </div>
       </div>
     </motion.div>
+
+    {/* Attachment Details Modal */}
+    {attachIdx !== null && imagePreviews[attachIdx] && (
+      <DialogPrimitive.Root open onOpenChange={(open) => { if (!open) setAttachIdx(null); }}>
+        <DialogPrimitive.Portal>
+          <DialogPrimitive.Overlay style={{ position: "fixed", inset: 0, zIndex: 200, backgroundColor: "rgba(0,0,0,0.5)" }} />
+          <DialogPrimitive.Content
+            onEscapeKeyDown={() => setAttachIdx(null)}
+            onInteractOutside={() => setAttachIdx(null)}
+            style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)", zIndex: 201, width: "calc(100vw - 32px)", maxWidth: "768px", maxHeight: "80vh", backgroundColor: "#fff", borderRadius: "16px", boxShadow: "0 25px 50px -12px rgba(0,0,0,0.25)", overflow: "hidden", display: "flex", flexDirection: "column" }}
+          >
+            {/* Header */}
+            <div style={{ flexShrink: 0, padding: "12px 20px", borderBottom: "1px solid #f3f4f6", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <span style={{ fontSize: "14px", fontWeight: 600, color: "#111827" }}>Attachment details</span>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                {attachIdx === displayImageIdx ? (
+                  <span style={{ fontSize: "12px", padding: "4px 10px", borderRadius: "999px", backgroundColor: "#f0fdf4", color: "#15803d", border: "1px solid #bbf7d0", fontWeight: 500 }}>✓ Main Image</span>
+                ) : (
+                  <button type="button" onClick={() => setDisplayImageIdx(attachIdx)} style={{ fontSize: "12px", padding: "6px 12px", borderRadius: "8px", border: "1px solid #1a2b6b", color: "#1a2b6b", background: "transparent", cursor: "pointer", fontWeight: 500 }}>Set as Main</button>
+                )}
+              </div>
+            </div>
+            {/* Body */}
+            <div style={{ display: "flex", overflow: "hidden", maxHeight: "calc(80vh - 112px)" }}>
+              {/* Left — image */}
+              <div style={{ width: "42%", flexShrink: 0, backgroundColor: "#f5f6f8", borderRight: "1px solid #f3f4f6", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "20px", gap: "8px" }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={imagePreviews[attachIdx]} alt={attachForm.altText || `Image ${attachIdx + 1}`} style={{ maxWidth: "100%", maxHeight: "42vh", objectFit: "contain", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.1)" }} />
+                <p style={{ fontSize: "10px", color: "#9ca3af", textAlign: "center", wordBreak: "break-all", lineHeight: 1.5, width: "100%" }}>{imageFiles[attachIdx]?.name ?? ""}</p>
+              </div>
+              {/* Right — fields + footer */}
+              <div style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0, minWidth: 0 }}>
+                <div style={{ overflowY: "auto", padding: "16px 20px", display: "flex", flexDirection: "column", gap: "14px" }}>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                    <label style={{ fontSize: "11px", fontWeight: 600, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.05em" }}>Alternative Text</label>
+                    <input type="text" value={attachForm.altText} onChange={(e) => setAttachForm((f) => ({ ...f, altText: e.target.value }))} placeholder="Describe the image…" style={{ width: "100%", border: "1px solid #e5e7eb", borderRadius: "8px", padding: "8px 12px", fontSize: "14px", color: "#1f2937", outline: "none", boxSizing: "border-box" }} />
+                    <span style={{ fontSize: "10px", color: "#9ca3af" }}>Leave empty if purely decorative.</span>
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                    <label style={{ fontSize: "11px", fontWeight: 600, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.05em" }}>Title</label>
+                    <input type="text" value={attachForm.title} onChange={(e) => setAttachForm((f) => ({ ...f, title: e.target.value }))} placeholder="Image title…" style={{ width: "100%", border: "1px solid #e5e7eb", borderRadius: "8px", padding: "8px 12px", fontSize: "14px", color: "#1f2937", outline: "none", boxSizing: "border-box" }} />
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                    <label style={{ fontSize: "11px", fontWeight: 600, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.05em" }}>Description</label>
+                    <textarea value={attachForm.description} onChange={(e) => setAttachForm((f) => ({ ...f, description: e.target.value }))} placeholder="Add a caption or longer description…" rows={2} style={{ width: "100%", border: "1px solid #e5e7eb", borderRadius: "8px", padding: "8px 12px", fontSize: "14px", color: "#1f2937", outline: "none", resize: "none", boxSizing: "border-box" }} />
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                    <label style={{ fontSize: "11px", fontWeight: 600, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.05em" }}>File Name</label>
+                    <div style={{ padding: "8px 12px", backgroundColor: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: "8px", fontSize: "11px", color: "#6b7280", fontFamily: "monospace", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{imageFiles[attachIdx]?.name ?? ""}</div>
+                  </div>
+                </div>
+                {/* Footer */}
+                <div style={{ flexShrink: 0, padding: "12px 20px", borderTop: "1px solid #f3f4f6", backgroundColor: "#fff", display: "flex", gap: "10px" }}>
+                  <button type="button" onClick={() => setAttachIdx(null)} style={{ flex: 1, height: "36px", border: "1px solid #e5e7eb", borderRadius: "12px", fontSize: "14px", fontWeight: 500, color: "#4b5563", backgroundColor: "#fff", cursor: "pointer" }}>Cancel</button>
+                  <button type="button" onClick={() => { setImageMetadata((prev) => { const next = [...prev]; next[attachIdx] = { ...attachForm }; return next; }); setAttachIdx(null); }} style={{ flex: 1, height: "36px", border: "none", borderRadius: "12px", fontSize: "14px", fontWeight: 600, color: "#fff", backgroundColor: "#1a2b6b", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>Save Details</button>
+                </div>
+              </div>
+            </div>
+          </DialogPrimitive.Content>
+        </DialogPrimitive.Portal>
+      </DialogPrimitive.Root>
+    )}
+    </>
   );
 }

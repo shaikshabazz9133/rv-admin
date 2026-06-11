@@ -23,6 +23,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { resolveImg, imgUrl } from "@/lib/utils";
 
 const API_BASE = "https://dev-backend.rvadventureaustralia.com.au/api";
 
@@ -106,7 +107,7 @@ interface ProfileData {
   email: string;
   countryCode?: string;
   mobile?: string;
-  avatar?: string;
+  avatar?: { _id: string; url: string } | string;
   role?: string | { _id?: string; name?: string };
   isActive?: boolean;
   isEmailVerified?: boolean;
@@ -326,17 +327,20 @@ export default function ProfilePage() {
       if (json.status === false)
         throw new Error(json.message || "Update failed");
 
+      // Resolve the avatar URL — API may return a plain string or { _id, url } object
+      const rawAvatar = json.data?.avatar ?? (json.data as Record<string, unknown>)?.avatar;
+      const resolvedAvatar = resolveImg(imgUrl(rawAvatar)) || resolveImg(imgUrl(profile.avatar));
       const updated: ProfileData = {
         ...profile,
         name: form.name.trim(),
         email: form.email.trim(),
         countryCode: form.countryCode.trim(),
         mobile: form.mobile.trim(),
-        ...(json.data?.avatar ? { avatar: json.data.avatar } : {}),
+        ...(resolvedAvatar ? { avatar: resolvedAvatar } : {}),
       };
       setProfile(updated);
 
-      // Keep the header in sync with the edited name/email.
+      // Keep the header in sync — always store a resolved string, never an object
       try {
         const rawUser = sessionStorage.getItem("user_info");
         const parsed = rawUser ? JSON.parse(rawUser) : {};
@@ -346,7 +350,7 @@ export default function ProfilePage() {
             ...parsed,
             name: updated.name,
             email: updated.email,
-            ...(updated.avatar ? { avatar: updated.avatar } : {}),
+            ...(resolvedAvatar ? { avatar: resolvedAvatar } : {}),
           }),
         );
       } catch {
@@ -531,7 +535,7 @@ export default function ProfilePage() {
   const roleName = resolveRoleName(profile?.role);
   const displayName = profile?.name?.trim() || "User";
   const initial = displayName.charAt(0).toUpperCase() || "U";
-  const currentAvatar = avatarPreview || profile?.avatar || null;
+  const currentAvatar = avatarPreview || resolveImg(imgUrl(profile?.avatar)) || null;
   const addresses = profile?.addresses ?? [];
 
   if (loading) {

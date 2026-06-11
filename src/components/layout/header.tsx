@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { Menu, ChevronDown, LogOut, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { resolveImg, imgUrl } from "@/lib/utils";
 
 const API_BASE = "https://dev-backend.rvadventureaustralia.com.au/api";
 
@@ -67,6 +68,7 @@ export function Header({ onMenuToggle }: HeaderProps) {
       parsed = null;
     }
 
+    const storedAvatar = resolveImg(imgUrl(parsed?.avatar)) || undefined;
     setSessionUser({
       name: parsed?.name?.trim() || tokenPayload?.name?.trim() || "Admin",
       email:
@@ -74,12 +76,12 @@ export function Header({ onMenuToggle }: HeaderProps) {
         tokenPayload?.email?.trim() ||
         "admin@rvaustralia.com",
       role: parsed?.role ?? tokenPayload?.role ?? "Admin",
-      avatar: typeof parsed?.avatar === "string" ? parsed.avatar.trim() || undefined : undefined,
+      avatar: storedAvatar,
     });
 
     // Fetch the latest avatar from the API if we don't already have one
     const userId = tokenPayload?.userId;
-    if ((typeof parsed?.avatar === "string" && parsed.avatar.trim()) || !userId || !rawToken) return;
+    if (storedAvatar || !userId || !rawToken) return;
 
     let cancelled = false;
     (async () => {
@@ -93,7 +95,7 @@ export function Header({ onMenuToggle }: HeaderProps) {
         });
         if (!res.ok) return;
         const json = await res.json();
-        const avatar: string | undefined = json?.data?.avatar;
+        const avatar = resolveImg(imgUrl(json?.data?.avatar)) || undefined;
         if (!cancelled && avatar)
           setSessionUser((prev) => (prev ? { ...prev, avatar } : prev));
       } catch {

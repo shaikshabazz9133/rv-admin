@@ -159,7 +159,10 @@ function GridCard({
   return (
     <div className="group relative rounded-xl border border-gray-200 bg-white hover:border-[#1a2b6b]/40 hover:shadow-md transition-all overflow-hidden flex flex-col">
       {/* Image area — fixed height, image contained so full image is always visible */}
-      <div className="relative w-full h-40 bg-[#f4f5f7] flex items-center justify-center overflow-hidden">
+      <div
+        className="relative w-full h-40 bg-[#f4f5f7] flex items-center justify-center overflow-hidden cursor-pointer"
+        onClick={onEdit}
+      >
         {src && !imgError ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -177,14 +180,14 @@ function GridCard({
         {/* Action buttons — appear on hover */}
         <div className="absolute top-1.5 right-1.5 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
           <button
-            onClick={onEdit}
+            onClick={(e) => { e.stopPropagation(); onEdit(); }}
             className="w-7 h-7 rounded-lg bg-white/95 shadow flex items-center justify-center text-gray-600 hover:text-[#1a2b6b] transition-colors"
             title="Edit"
           >
             <Pencil className="h-3.5 w-3.5" />
           </button>
           <button
-            onClick={onDelete}
+            onClick={(e) => { e.stopPropagation(); onDelete(); }}
             className="w-7 h-7 rounded-lg bg-white/95 shadow flex items-center justify-center text-gray-600 hover:text-red-600 transition-colors"
             title="Delete"
           >
@@ -223,6 +226,7 @@ export default function MediaPage() {
   const [total, setTotal] = useState(0);
   const [search, setSearch] = useState("");
   const [searchInput, setSearchInput] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
 
   // Add/Edit modal
@@ -254,7 +258,7 @@ export default function MediaPage() {
   }), []);
 
   // ── Fetch a page and append/replace ──
-  const fetchPage = useCallback(async (pg: number, searchStr: string, replace: boolean) => {
+  const fetchPage = useCallback(async (pg: number, searchStr: string, replace: boolean, cat: string = "") => {
     const token = getToken();
     if (!token) return;
     if (fetchingPageRef.current === pg) return;
@@ -266,6 +270,7 @@ export default function MediaPage() {
     try {
       const params = new URLSearchParams({ pageNo: String(pg), pageSize: String(PER_PAGE) });
       if (searchStr.trim()) params.set("search", searchStr.trim());
+      if (cat) params.set("category", cat);
 
       const res = await fetch(`${API_BASE}/image/list?${params}`, { headers: authHeaders(token) });
       if (res.status === 401) { sessionStorage.clear(); router.push("/"); return; }
@@ -310,14 +315,14 @@ export default function MediaPage() {
     }
   }, [getToken, authHeaders, toast, router]);
 
-  // Initial load / search reset
+  // Initial load / search / filter reset
   useEffect(() => {
     setItems([]);
     setPage(1);
     setHasMore(true);
-    fetchPage(1, search, true);
+    fetchPage(1, search, true, categoryFilter);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search]);
+  }, [search, categoryFilter]);
 
   // IntersectionObserver — fires when sentinel enters viewport
   useEffect(() => {
@@ -327,7 +332,7 @@ export default function MediaPage() {
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries[0].isIntersecting && hasMore && !loadingMore && !loadingInitial) {
-          fetchPage(page + 1, search, false);
+          fetchPage(page + 1, search, false, categoryFilter);
         }
       },
       { rootMargin: "200px" },
@@ -335,7 +340,7 @@ export default function MediaPage() {
 
     observer.observe(sentinel);
     return () => observer.disconnect();
-  }, [hasMore, loadingMore, loadingInitial, page, search, fetchPage]);
+  }, [hasMore, loadingMore, loadingInitial, page, search, categoryFilter, fetchPage]);
 
   // ── Search ──
   const handleSearch = (e: React.FormEvent) => {
@@ -353,7 +358,15 @@ export default function MediaPage() {
   // ── Open Edit ──
   const openEdit = (item: MediaItem) => {
     setEditItem(item);
-    setForm({ title: item.title ?? "", description: item.description ?? "", altText: item.altText ?? "", image: null, imagePreview: getImageUrl(item) });
+    const imageUrl = getImageUrl(item);
+    const urlFilename = imageUrl.split("/").pop()?.split("?")[0]?.replace(/\.[^/.]+$/, "") ?? "";
+    setForm({
+      title: item.title || urlFilename,
+      description: item.description ?? "",
+      altText: item.altText ?? "",
+      image: null,
+      imagePreview: imageUrl,
+    });
     setShowModal(true);
   };
 
@@ -464,6 +477,24 @@ export default function MediaPage() {
           </button>
         </div>
 
+        {/* Category filter */}
+        <div className="flex items-center bg-gray-100 rounded-xl p-1 gap-0.5">
+          {["", "Product", "Blog", "CarouselPic", "Category", "User", "Supplier"].map((cat) => (
+            <button
+              key={cat}
+              type="button"
+              onClick={() => setCategoryFilter(cat)}
+              className={`px-3 h-7 rounded-lg text-xs font-semibold transition-all whitespace-nowrap ${
+                categoryFilter === cat
+                  ? "bg-[#1a2b6b] text-white shadow-sm"
+                  : "text-gray-500 hover:text-[#1a2b6b] hover:bg-white"
+              }`}
+            >
+              {cat || "All"}
+            </button>
+          ))}
+        </div>
+
         <div className="flex-1" />
 
         <form onSubmit={handleSearch} className="flex items-center gap-2">
@@ -536,7 +567,7 @@ export default function MediaPage() {
                       <td className="px-4 py-3">
                         {src ? (
                           // eslint-disable-next-line @next/next/no-img-element
-                          <img src={src} alt={item.altText || item.title} className="w-14 h-14 object-cover rounded-lg border border-gray-100 bg-gray-50" />
+                          <img src={src} alt={item.altText || item.title} onClick={() => openEdit(item)} className="w-14 h-14 object-cover rounded-lg border border-gray-100 bg-gray-50 cursor-pointer hover:opacity-80 transition-opacity" />
                         ) : (
                           <div className="w-14 h-14 rounded-lg bg-gray-100 flex items-center justify-center">
                             <ImageOff className="h-5 w-5 text-gray-300" />

@@ -969,7 +969,10 @@ export default function ProductsPage() {
           parentL1Id = parentL2?.parent?._id ?? "";
         }
         const rawImg = d.image;
-        const imgId = rawImg && typeof rawImg === "object" ? (rawImg as Record<string, unknown>)._id as string : undefined;
+        const imgId =
+          rawImg && typeof rawImg === "object"
+            ? ((rawImg as Record<string, unknown>)._id as string)
+            : undefined;
         setCategoryForm({
           name: d.name ?? "",
           description: d.description ?? "",
@@ -978,12 +981,17 @@ export default function ProductsPage() {
           parentL2Id,
           tags: (d.tags ?? []).join(", "),
           displayPriority: String(d.displayPriority ?? 0),
-          imageAltText: d.imageAltText ?? "",
+          imageAltText:
+            ((rawImg as Record<string, unknown>)?.altText as string) ??
+            d.imageAltText ??
+            "",
           image: imgUrl(d.image) || null,
           existingImage: imgUrl(d.image) || null,
           imageId: imgId,
-          imageTitle: (rawImg as Record<string, unknown>)?.title as string ?? "",
-          imageDescription: (rawImg as Record<string, unknown>)?.description as string ?? "",
+          imageTitle:
+            ((rawImg as Record<string, unknown>)?.title as string) ?? "",
+          imageDescription:
+            ((rawImg as Record<string, unknown>)?.description as string) ?? "",
         });
       }
     } catch {
@@ -1313,7 +1321,7 @@ export default function ProductsPage() {
                     <th className="text-left px-3 sm:px-4 py-3 font-semibold text-gray-700 w-16">
                       Image
                     </th>
-                    <th className="text-left px-3 sm:px-4 py-3 font-semibold text-gray-700">
+                    <th className="text-left px-3 sm:px-4 py-3 font-semibold text-gray-700 min-w-[250px]">
                       Product Name
                     </th>
                     {activeColumns.map((col) => (
@@ -1374,7 +1382,7 @@ export default function ProductsPage() {
                         </td>
                         <td className="px-3 sm:px-4 py-3">
                           <p
-                            className="font-medium text-gray-800 truncate max-w-[150px] xl:max-w-[180px]"
+                            className="font-medium text-gray-800 break-words"
                             title={product.name}
                           >
                             {product.name}
@@ -1607,7 +1615,10 @@ export default function ProductsPage() {
                   {categoryForm.image && (
                     <button
                       type="button"
-                      onClick={(e) => { e.stopPropagation(); setCatAttachOpen(true); }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setCatAttachOpen(true);
+                      }}
                       className="w-full text-xs text-[#1a2b6b] hover:underline text-center"
                     >
                       Edit attachment details
@@ -1860,7 +1871,14 @@ export default function ProductsPage() {
           initialAltText={categoryForm.imageAltText}
           initialDescription={categoryForm.imageDescription}
           onClose={() => setCatAttachOpen(false)}
-          onSaved={(data) => setCategoryForm((f) => ({ ...f, imageAltText: data.altText, imageTitle: data.title, imageDescription: data.description }))}
+          onSaved={(data) =>
+            setCategoryForm((f) => ({
+              ...f,
+              imageAltText: data.altText,
+              imageTitle: data.title,
+              imageDescription: data.description,
+            }))
+          }
         />
       )}
 
