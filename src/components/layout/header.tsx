@@ -74,12 +74,12 @@ export function Header({ onMenuToggle }: HeaderProps) {
         tokenPayload?.email?.trim() ||
         "admin@rvaustralia.com",
       role: parsed?.role ?? tokenPayload?.role ?? "Admin",
-      avatar: parsed?.avatar?.trim() || undefined,
+      avatar: typeof parsed?.avatar === "string" ? parsed.avatar.trim() || undefined : undefined,
     });
 
     // Fetch the latest avatar from the API if we don't already have one
     const userId = tokenPayload?.userId;
-    if (parsed?.avatar?.trim() || !userId || !rawToken) return;
+    if ((typeof parsed?.avatar === "string" && parsed.avatar.trim()) || !userId || !rawToken) return;
 
     let cancelled = false;
     (async () => {
