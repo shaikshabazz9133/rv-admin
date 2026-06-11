@@ -7,7 +7,7 @@ import { Menu, ChevronDown, LogOut, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { resolveImg, imgUrl } from "@/lib/utils";
 
-const API_BASE = "https://dev-backend.rvadventureaustralia.com.au/api";
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "https://dev-backend.rvadventureaustralia.com.au/api";
 
 interface HeaderProps {
   onMenuToggle: () => void;

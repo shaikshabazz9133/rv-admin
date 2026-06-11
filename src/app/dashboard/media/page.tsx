@@ -19,7 +19,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 import { resolveImg, imgUrl } from "@/lib/utils";
 
-const API_BASE = "https://dev-backend.rvadventureaustralia.com.au/api";
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "https://dev-backend.rvadventureaustralia.com.au/api";
 const PER_PAGE = 20;
 
 // ─── Types ─────────────────────────────────────────────────────────────────────

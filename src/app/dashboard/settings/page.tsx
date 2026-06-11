@@ -20,7 +20,7 @@ import { useToast } from "@/hooks/use-toast";
 import AttachmentDetailsModal from "@/components/AttachmentDetailsModal";
 import { resolveImg, imgUrl } from "@/lib/utils";
 
-const API_BASE = "https://dev-backend.rvadventureaustralia.com.au/api";
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "https://dev-backend.rvadventureaustralia.com.au/api";
 
 function getToken(): string | null {
   if (typeof window === "undefined") return null;

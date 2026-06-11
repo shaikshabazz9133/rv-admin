@@ -11,7 +11,7 @@ import { Loader2, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { resolveImg } from "@/lib/utils";
 
-const API_BASE = "https://dev-backend.rvadventureaustralia.com.au/api";
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "https://dev-backend.rvadventureaustralia.com.au/api";
 
 function authHeaders(token: string) {
   return {

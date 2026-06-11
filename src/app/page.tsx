@@ -17,7 +17,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 
-const API_BASE = "https://dev-backend.rvadventureaustralia.com.au/api";
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "https://dev-backend.rvadventureaustralia.com.au/api";
 
 function Particle({ index }: { index: number }) {
   const sizes = [4, 6, 3, 8, 5, 4, 7, 3, 6, 5, 4, 8, 3, 6, 5, 4, 7, 3, 6, 4];

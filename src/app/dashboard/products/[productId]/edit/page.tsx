@@ -27,7 +27,7 @@ import {
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import SeoTab, { type SeoTabHandle } from "@/components/SeoTab";
 
-const API_BASE = "https://dev-backend.rvadventureaustralia.com.au/api";
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "https://dev-backend.rvadventureaustralia.com.au/api";
 
 function getToken() {
   return typeof window !== "undefined"
